@@ -105,8 +105,14 @@ tar tzf dist/dsh-window-size-keeper-0.1.0.tgz     # 11 个文件，必须与上�
 - 浏览器里的真机视觉确认：本机 Edge / Chrome 的 headless 模式被活动会话挡住（stdout 空、
   `--screenshot` 不落盘、退出码 0/21 都拿不到图），所以第 [9] 组用的是假 DOM。
   要看真的：打开桌面端「设置 → 窗口大小」，或在 DSH「设置 → 通用 → 语言」里切换看文案是否立刻换。
-- GitHub 仓库已建好（`ecbob/dsh-window-size-keeper`），**但本机这把公钥还没在账号里授权**，
-  所以 push 还没成功；授权之后（或改用令牌）推 `main`，再建 Release `v0.1.0` 传上面的 tarball 附件。
-  市场投稿 PR 仍未提。
+- **已推送（2026-10-19）**：`refs/heads/main` = `5b33b7fccf839f66a7bf2818365c29437a51d7fd`（17 个文件），
+  注解 tag `v0.1.0`（tag 对象 `232190dbcf0bf78ffd47096350bd6742fb18e352`）也推了过去。认证走 SSH，
+  本机用的是新生成的专用私钥 `~/.ssh/id_ed25519_github_ecbob`（指纹 `SHA256:7hVjUILVjaRL+YfjFbqJMxMbYp1KrViEXSHqDiOBFJY`，
+  认证时 GitHub 回 `Hi ecbob!`）；原来那把 `id_ed25519` 递出去仍被拒，GitHub 对它的提示是
+  "Key is already in use"，具体是登记成了签名 key 还是挂在别的账号下没去查——反正不动它、新 key 通了。
+  `.git/config` 里没有凭证也没有代理残留（SSH 不需要）。
+- 还剩这几步：GitHub Release `v0.1.0` 与 tarball 附件（本机没有 `gh` CLI，只能网页上传或给 token 走 API）；
+  确认仓库可见性是 **Public**（市场闸门要求）；Actions 首跑结果（Windows 那两个 job 会跑 check + 81 项自检）；
+  市场投稿 PR 未提。
 - 脱敏范围按用户选择只做本仓库；隔壁 `@dsh-pet/bridge` 的 `RELEASES.txt` 里还留着一处
   `C:\Users\<账号>\AppData\Local\Programs\Python\…pythonw.exe`，那份仓库没有这套扫描器。

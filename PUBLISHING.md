@@ -59,6 +59,11 @@ git push -u origin main
 >
 > 首次建仓时的提交身份写法：`git -c user.name=ecbob -c user.email=ecbob@users.noreply.github.com …`
 > ——GitHub 的 noreply 地址让你 commit 挂在你的账号下，又不把个人邮箱暴露在公开历史里。
+>
+> 本机实测过的两条坑（都踩过一次）：① `GIT_SSH_COMMAND` 只作用于 git 自己调起的那个 ssh，
+> 你直接跑 `ssh -T git@github.com` 不会带上 `-i`，拿它"验证 key 加没加上"会误判成没加上；
+> ② 要多把 key 里指定一把，得写 `-i <私钥路径> -o IdentitiesOnly=yes`；Git Bash 的 `/c/Users/…`
+> 与 Windows 的 `C:\Users\…` 两种路径写法，本机 OpenSSH_10.5p1 都收（实测都能认证）。
 
 ## 三、装到 profile（两种）
 
@@ -89,7 +94,8 @@ dev_reload_package   dsh-window-size-keeper
 - [x] owner 与署名统一为 `ecbob`（包、LICENSE、投稿条目文件名与字段、文档一致）；仓库已在 GitHub 建好，待推送
 - [x] `npm run scan:sensitive` — 脱敏扫描通过（9 条规则；扫描器自身的「必须判红 / 必须判绿」两组对照全通过（条数运行时自报）；递归覆盖，归档目录实扫 17 个文件）
 - [x] CI：Windows × Node 20/22 跑 check + selftest；Ubuntu 跑 check；一条 job 钉 `dsh.bundle` 与零依赖；一条 job 专跑脱敏扫描
-- [ ] 建仓 push 后看 Actions 首跑
+- [x] 建仓与 push：`main` = `5b33b7f`、注解 tag `v0.1.0` 已推（远程 refs 实测见 `RELEASES.txt`）
+- [ ] Actions 首跑结果（网页看）；GitHub Release `v0.1.0` + tarball 附件；确认仓库是 Public
 - [ ] 浏览器里的真机视觉确认：本机 Edge / Chrome 的 headless 被活动会话挡住（stdout 空、
       `--screenshot` 不落盘），所以第 [9] 组只能走假 DOM；要看真的得开桌面端
 
