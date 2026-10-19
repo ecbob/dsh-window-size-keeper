@@ -5,7 +5,7 @@
 Keeps the DSH desktop window the size you left it: host half + a settings-page section, zero external dependencies.
 
 > Changelog: [CHANGELOG.md](CHANGELOG.md) (English) / [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md) (Simplified Chinese) — the two are maintained together.
-> The release ledger (`RELEASES.txt`), the publish/submission guide (`PUBLISHING.md`) and the market submission entry (`submission/`) live only in the publish archive directory — see "Two directories on this machine" at the end.
+> The release ledger (`RELEASES.txt`), the publish/submission guide (`PUBLISHING.md`) and the market submission entry (`submission/`) live only in this checkout (they are not part of the published package) — see "What lives where on a machine" at the end.
 
 ## The problem
 
@@ -130,12 +130,15 @@ To add or remove entries, put a `presets:` list in `config` of `cordis.patch.yml
 ## Installation / reload
 
 ```bash
-# normal user: install the published artifact
-dsh plugin --profile desktop add "<this repo>/dist/dsh-window-size-keeper-0.1.0.tgz"
+# normal user: install the published artifact - download the GitHub Release asset, verify it, then install
+curl -L -o ~/.dsh/.plugin-sources/dsh-window-size-keeper-<version>.tgz \
+  https://github.com/ecbob/dsh-window-size-keeper/releases/download/v<version>/dsh-window-size-keeper-<version>.tgz
+shasum -a 256 ~/.dsh/.plugin-sources/dsh-window-size-keeper-<version>.tgz   # must equal that release's SHA-256 in RELEASES.txt
+dsh plugin --profile desktop add "<absolute path of that .tgz>"            # the spec has to be an absolute path
 
 # development: hot-assemble (no restart)
 dev_install_package  dir=<absolute path of this repo>  profile=desktop
-dev_reload_package   dsh-window-size-keeper
+dev_reload_package   dsh-window-size-keeper   # swaps the host half only; the settings page still needs a reload
 ```
 
 Uninstall: `dsh plugin --profile desktop remove dsh-window-size-keeper`, or `dev_uninject_plugin dsh-window-size-keeper`.
@@ -151,7 +154,7 @@ node scripts/selftest.mjs                                    # or npm test
 node --check lib/index.js && node --check lib/client.js      # or npm run check
 ```
 
-`scripts/selftest.mjs` is dependency-free and covers 81 cases in ten groups: the pure functions (centring, clamping, priority, input validation, main-window identification, settings/state read-write), the HTTP routes (fake ctx + real http server + real fetch), the Win32 agent protocol against a real `powershell.exe`, the i18n dictionaries (key parity, identical `{placeholders}`, no untranslated leftovers in the English table, language resolution priority), and rendering the actual section into a fake DOM in both languages — including "switching language must not rebuild the DOM, so the custom width you were typing is still there", and "a dictionary that failed to register never shows an internal key".
+`scripts/selftest.mjs` is dependency-free and covers 88 checks across twelve labelled groups (0.1.1 added group `[5c]` - the sampling cadence and the "was this resize manual?" decision as pure functions - plus a render check that the frame line shows the real size after a refresh and after a language switch): the pure functions (centring, clamping, priority, input validation, main-window identification, settings/state read-write), the HTTP routes (fake ctx + real http server + real fetch), the Win32 agent protocol against a real `powershell.exe`, the i18n dictionaries (key parity, identical `{placeholders}`, no untranslated leftovers in the English table, language resolution priority), and rendering the actual section into a fake DOM in both languages — including "switching language must not rebuild the DOM, so the custom width you were typing is still there", and "a dictionary that failed to register never shows an internal key".
 
 Group [10] is a desensitization scan (`scripts/check-sensitive.mjs`, runnable on its own as `npm run scan:sensitive`): it refuses account home directories (`C:\Users\<someone>`, `/home/<someone>`), personal workspace absolute paths, hard-coded loopback ports, credential-shaped strings (`api_key: …`, `ghp_…`, `sk-…`, `AKIA…`), real e-mail addresses and machine fingerprints (SID / machine GUID / hostname) anywhere in the shipped files or the repo-only release docs. It carries its own must-be-red and must-be-green control samples — the scanner prints how many at run time and selftest group [10] enforces both halves — so the gate cannot quietly rot into a rubber stamp; `~/.dsh`, `%USERPROFILE%`, `<workspace>` and `<HOME>` plus SHA-256 digests are deliberately allowed — a ledger that cannot write down a checksum is not much of a ledger.
 
@@ -159,11 +162,11 @@ It points the state and settings files at a temporary directory and **never touc
 
 ## The zero-dependency red line
 
-Node builtins + the system `powershell.exe` only; no runtime dependency is declared. The profile links this directory through pnpm `link:`, and pnpm does not install the linked package's own dependencies; an unresolvable runtime dependency makes the whole Cordis plugin tree throw and DSH cannot start (the 2026-09 incident; the same warning is in `@dsh-pet/bridge`). The client half follows the same rule: it only uses the `react` the client module loader already injects, and no third-party package.
+Node builtins + the system `powershell.exe` only; no runtime dependency is declared. The rule holds in either install mode: when a profile installs the packaged tarball, any declared runtime dependency would have to resolve from the registry during install, and when a profile links this directory for development (pnpm `link:`) pnpm does not install the linked package's own dependencies at all - either way an unresolvable runtime dependency makes the whole Cordis plugin tree throw and DSH cannot start (the 2026-09 incident; the same warning is in `@dsh-pet/bridge`). The client half follows the same rule: it only uses the `react` the client module loader already injects, and no third-party package.
 
-## Two directories on this machine
+## What lives where on a machine
 
-`<workspace>\dsh-window-size-keeper` is the development directory the desktop profile currently links to; `<workspace>\dsh-window-size-keeper-0.1.0` is the publish archive. `<workspace>` stands for "wherever this checkout lives on your machine" — the repo deliberately records no absolute paths from anyone's machine, and a selftest group enforces that. Both directories carry the same code, README and changelog; only the release ledger, `PUBLISHING.md`, the market submission entry, CI and `.git` exist in the archive.
+`<workspace>/dsh-window-size-keeper` is the one checkout: code, both READMEs, both changelogs, the release ledger, `PUBLISHING.md`, the market submission entry, CI and `.git`. Version identity is the annotated tag `v<version>` - the old habit of keeping a second directory named `<name>-<version>` as a release snapshot was retired on 2026-10-20 and nothing depends on it. `<workspace>` stands for "wherever this checkout lives on your machine" — the repo deliberately records no absolute paths from anyone's machine, and a selftest group enforces that. What DSH actually runs is a packaged artifact rather than this directory: `npm pack` writes `dist/<name>-<version>.tgz` and the profile installs it from `~/.dsh/.plugin-sources/<name>-<version>.tgz`, so editing `lib/*.js` here takes effect only after pack + `dsh plugin … add` + a full DSH restart (or a temporary `link:` while debugging).
 
 ## License
 

@@ -5,7 +5,7 @@
 DSH 桌面端窗口大小保持插件（host 侧 + 设置页分区，零外部依赖）。
 
 > 更新记录：英文 [CHANGELOG.md](CHANGELOG.md) / 中文 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md)（两份一起维护）。
-> 发布台账 `RELEASES.txt`、建仓与投稿说明 `PUBLISHING.md`、市场投稿条目 `submission/` 只在发布归档目录里（见文末「本机上的两份目录」）。
+> 发布台账 `RELEASES.txt`、建仓与投稿说明 `PUBLISHING.md`、市场投稿条目 `submission/` 只在这份 checkout 里（它们不在发布出去的包中，见文末「本机上的东西各放在哪」）。
 
 ## 解决的问题
 
@@ -130,12 +130,15 @@ DSH 桌面端 → 设置 → **窗口大小**（与「插件」「桌宠」同�
 ## 安装 / 重载
 
 ```bash
-# 普通用户：装发布产物
-dsh plugin --profile desktop add "<本仓库>/dist/dsh-window-size-keeper-0.1.0.tgz"
+# 普通用户：装发布产物 —— 从 GitHub Release 下载附件、先核摘要、再安装
+curl -L -o ~/.dsh/.plugin-sources/dsh-window-size-keeper-<版本>.tgz \
+  https://github.com/ecbob/dsh-window-size-keeper/releases/download/v<版本>/dsh-window-size-keeper-<版本>.tgz
+sha256sum ~/.dsh/.plugin-sources/dsh-window-size-keeper-<版本>.tgz   # 必须等于 RELEASES.txt 里那次发布的 SHA-256
+dsh plugin --profile desktop add "<这个 .tgz 的绝对路径>"             # spec 必须给绝对路径
 
 # 开发期：热装配（免重启）
 dev_install_package  dir=<本仓库绝对路径>  profile=desktop
-dev_reload_package   dsh-window-size-keeper
+dev_reload_package   dsh-window-size-keeper   # 只换宿主那一半；设置页还得刷新一次
 ```
 
 卸载：`dsh plugin --profile desktop remove dsh-window-size-keeper`，或 `dev_uninject_plugin dsh-window-size-keeper`。
@@ -151,7 +154,7 @@ node scripts/selftest.mjs                                    # 或 npm test
 node --check lib/index.js && node --check lib/client.js      # or npm run check
 ```
 
-`scripts/selftest.mjs` 零依赖，81 项分十组：纯函数（居中/夹取/优先级/输入校验/主窗口识别/状态与设置读写）、HTTP 路由（假 ctx + 真 http server + 真 fetch）、真 `powershell.exe` 的 Win32 代理协议、文案 i18n（中英词典逐 key 对齐、`{占位符}` 一致、英文表里不许残留中文、语言判定优先级），以及**用假 DOM 真渲染这个分区**——中英两种语言各渲染一遍，并验"切语言不重建 DOM、正在输入的自定义宽高不丢、提示也跟着换语言、词典没注册成功时绝不把 page.title 这类内部 key 甩到界面上、卸载时刷新定时器与语言订阅都释放"。
+`scripts/selftest.mjs` 零依赖，88 项分十二个编号组（`[5c]` 组是 0.1.1 加的：采样节奏与"这次算不算用户手动"的判定，都是纯函数；`[9]` 组另钉了那一行必须显示真实尺寸）：纯函数（居中/夹取/优先级/输入校验/主窗口识别/状态与设置读写）、HTTP 路由（假 ctx + 真 http server + 真 fetch）、真 `powershell.exe` 的 Win32 代理协议、文案 i18n（中英词典逐 key 对齐、`{占位符}` 一致、英文表里不许残留中文、语言判定优先级），以及**用假 DOM 真渲染这个分区**——中英两种语言各渲染一遍，并验"切语言不重建 DOM、正在输入的自定义宽高不丢、提示也跟着换语言、词典没注册成功时绝不把 page.title 这类内部 key 甩到界面上、卸载时刷新定时器与语言订阅都释放"。
 
 第 [10] 组是**脱敏扫描**（`scripts/check-sensitive.mjs`，也能单独跑：`npm run scan:sensitive`）：发布文件与仓库文档里都不许出现账号家目录绝对路径（`C:\Users\<某人>`、`/home/<某人>`）、个人工作区绝对路径、写死的本机回环端口、凭据样式（`api_key: …`、`ghp_…`、`sk-…`、`AKIA…`）、真实邮箱、机器指纹（SID、机器 GUID、主机名）。扫描器自带「必须判红」与「必须判绿」两组对照（条数由扫描器运行时自报，并被自检第 [10] 组盯住），所以它不会悄悄退化成盖章机器；`~/.dsh`、`%USERPROFILE%`、`<工作区>`、`<HOME>` 这类通用占位写法和 SHA-256 摘要是**故意放行**的——一份连校验和都写不进去的仓库，也算不上发布台账。
 
@@ -159,11 +162,11 @@ node --check lib/index.js && node --check lib/client.js      # or npm run check
 
 ## 零依赖红线
 
-仅使用 node 内置模块 + 系统 `powershell.exe`，不声明任何运行时依赖。profile 经 pnpm `link:` 链接本目录，pnpm 不会安装被链接包自身的依赖；运行时依赖解析失败会让 Cordis 插件树整体抛错、DSH 无法启动（2026-09 事故，见 `@dsh-pet/bridge` 同款注释）。客户端半个插件同理：只用客户端模块加载器已注入的 `react`，不引任何第三方包。
+仅使用 node 内置模块 + 系统 `powershell.exe`，不声明任何运行时依赖。两种装配方式下这条红线都成立：profile 装打包产物时，声明了的运行时依赖就得在安装那一刻从 registry 解析；profile 用 pnpm `link:` 直接链接本目录调试时，pnpm 根本不会去装被链接包自己的依赖 —— 两种情况下只要运行时依赖解析失败会让 Cordis 插件树整体抛错、DSH 无法启动（2026-09 事故，见 `@dsh-pet/bridge` 同款注释）。客户端半个插件同理：只用客户端模块加载器已注入的 `react`，不引任何第三方包。
 
-## 本机上的两份目录
+## 本机上的东西各放在哪
 
-`<工作区>\dsh-window-size-keeper` 是开发目录（桌面端 profile 现在 link 的就是它）；`<工作区>\dsh-window-size-keeper-0.1.0` 是发布归档副本。`<工作区>` 的意思就是"这份 checkout 在你机器上的位置"——仓库里**故意不记录任何人本机的绝对路径**，而且自检里有一组专门盯着这件事。两边的代码、README、更新记录是同一份，只有发布台账 `RELEASES.txt`、`PUBLISHING.md`、市场投稿条目 `submission/`、CI 与 `.git` 在归档目录里。
+`<工作区>\dsh-window-size-keeper` 就是唯一那一份 checkout：代码、两份 README、两份更新记录、发布台账、`PUBLISHING.md`、市场投稿条目、CI 与 `.git` 都在它里面。版本身份是注解 tag `v<版本>` —— 以前那种再开一个 `<名字>-<版本>` 目录当发布快照的做法已在 2026-10-20 退役，没有任何东西依赖它。`<工作区>` 的意思就是"这份 checkout 在你机器上的位置"——仓库里**故意不记录任何人本机的绝对路径**，而且自检里有一组专门盯着这件事。DSH 真正跑的是**打包产物**而不是这个目录：`npm pack` 打出 `dist/<名字>-<版本>.tgz`，profile 从 `~/.dsh/.plugin-sources/<名字>-<版本>.tgz` 装它 —— 所以在这里改 `lib/*.js` 不会直接影响运行时，要走 pack + `dsh plugin … add` + 完全重启桌面端（调试期可以临时换回 `link:`）。
 
 ## 许可
 

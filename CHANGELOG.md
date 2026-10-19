@@ -12,6 +12,28 @@ Release ledger (tarball names + SHA-256): `RELEASES.txt` (publish archive direct
 > tarball is packed, and no released tarball is ever deleted. The English and Chinese
 > versions of this file are updated together.**
 
+## [0.1.2] - 2026-10-20
+
+Docs only - no plugin code changed. Verified rather than asserted: the 0.1.2 tarball differs from 0.1.1
+in exactly three shipped files (the two READMEs and `package.json`'s version line); `lib/`,
+`scripts/` and `cordis.patch.yml` are byte-identical, so every offline check result from 0.1.1 still
+applies verbatim.
+
+### Changed
+
+- README (both languages): dropped the statements that stopped matching reality - a "publish archive"
+  directory separate from a development directory, a second `<name>-<version>` folder kept as a release
+  snapshot (that habit was retired 2026-10-20; the annotated tag is the version identity), "the desktop
+  profile links this directory through pnpm `link:`", and "81 cases in ten groups" (it is 88 checks
+  across twelve labelled groups since 0.1.1). The section is now "What lives where on a machine" /
+  「本机上的东西各放在哪」: one checkout holding code, ledgers, submission entry, CI and `.git`, plus the
+  packaged tarball under `~/.dsh/.plugin-sources/` that a profile actually runs.
+- The install section spells out the ordinary-user path that used to be one line pointing at a local
+  `dist/` file: download the GitHub Release asset keeping its exact file name, verify its SHA-256
+  against the release ledger, `dsh plugin … add "<absolute path of the .tgz>"`, then fully quit and
+  restart DSH - the host half loads at start-up and the client half on page load. `dev_reload_package`
+  is now labelled as swapping the host half only.
+
 ## [0.1.1] - 2026-10-20
 
 Both defects below were found by installing the plugin from the artifact published on GitHub and

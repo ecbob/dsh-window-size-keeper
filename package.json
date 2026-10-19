@@ -1,6 +1,6 @@
 {
   "name": "dsh-window-size-keeper",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Keeps the DSH desktop window the size you left it: records the main window's last outer frame in physical pixels and restores it (centred) on the next start, with a bilingual Settings → Window size section offering 12 common resolutions and custom width/height that apply immediately. Win32 P/Invoke through powershell.exe, zero external dependencies.",
   "type": "module",
   "main": "lib/index.js",
