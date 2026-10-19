@@ -117,8 +117,13 @@ tar tzf dist/dsh-window-size-keeper-0.1.0.tgz     # 11 个文件，必须与上�
 - 网络口径更正（本机实测）：`github.com` 的 git-http 端点与 `api.github.com` **直连与走本地代理都返回 200**，
   所以早先那句"`github.com:443` 被 SNI 级阻断、HTTPS 必须带代理"不再成立（PUBLISHING 已同步改）。
   同一批实测还确认：仓库匿名可访问（`api.github.com/repos/…` 返回 200）= **Public**，`/releases` 返回空数组。
-- 还剩这几步：GitHub Release `v0.1.0` 与 tarball 附件（本机没有 `gh` CLI，只能网页上传或给 token 走 API）；
-  确认仓库可见性是 **Public**（市场闸门要求）；Actions 首跑结果（Windows 那两个 job 会跑 check + 81 项自检）；
-  市场投稿 PR 未提。
+- **Release 已建并核对**（2026-10-19，走 API + classic `repo` scope 令牌）：Release id 417597383、
+  tag `v0.1.0`、`target_commitish: main`；附件 `dsh-window-size-keeper-0.1.0.tgz` size 75,239、state uploaded；
+  再把附件下载回来复算 SHA-256 = `e6ca432cec5ddd98273f3a7a2e07e78527423e9534de826632a2c34838bf09de`，
+  与本地包逐字节一致（"挂上去的就是本地那个包"这句是算出来的，不是推断）。
+  https://github.com/ecbob/dsh-window-size-keeper/releases/tag/v0.1.0
+- 仓库可见性已实测确认是 **Public**：匿名 `GET api.github.com/repos/…` 返回 200，匿名也能读 git-http refs。
+- 还剩：看 Actions 首跑结果（Windows 两个 job 跑 check + 81 项自检，Ubuntu 两个 job 跑 check + 脱敏闸门 + manifest 闸门）；
+  提市场投稿 PR（另有"仓库满 1 天"这道硬门槛，最早明天之后）；用完把那个令牌在 GitHub 上撤销。
 - 脱敏范围按用户选择只做本仓库；隔壁 `@dsh-pet/bridge` 的 `RELEASES.txt` 里还留着一处
   `C:\Users\<账号>\AppData\Local\Programs\Python\…pythonw.exe`，那份仓库没有这套扫描器。

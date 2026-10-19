@@ -96,7 +96,9 @@ dev_reload_package   dsh-window-size-keeper
 - [x] `npm run scan:sensitive` — 脱敏扫描通过（9 条规则；扫描器自身的「必须判红 / 必须判绿」两组对照全通过（条数运行时自报）；递归覆盖，归档目录实扫 17 个文件）
 - [x] CI：Windows × Node 20/22 跑 check + selftest；Ubuntu 跑 check；一条 job 钉 `dsh.bundle` 与零依赖；一条 job 专跑脱敏扫描
 - [x] 建仓与 push：`main` = `5b33b7f`、注解 tag `v0.1.0` 已推（远程 refs 实测见 `RELEASES.txt`）
-- [ ] Actions 首跑结果（网页看）；GitHub Release `v0.1.0` + tarball 附件；确认仓库是 Public
+- [x] GitHub Release `v0.1.0`（id 417597383）+ 附件 `dsh-window-size-keeper-0.1.0.tgz`（75,239 B；
+      下载回来复算 SHA-256 与本地一致）；[x] 仓库已确认 Public（匿名 API 与 git-http refs 都是 200）
+- [ ] Actions 首跑结果（网页看）；提市场投稿 PR（还多一道"仓库满 1 天"的硬门槛）；用完撤销令牌
 - [ ] 浏览器里的真机视觉确认：本机 Edge / Chrome 的 headless 被活动会话挡住（stdout 空、
       `--screenshot` 不落盘），所以第 [9] 组只能走假 DOM；要看真的得开桌面端
 
