@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # 离线自检里有第 [7] 组：起真 powershell.exe、用一个不存在的句柄跑一遍代理协议，
+  # 专门验"失败如实回报、不谎报已改窗口"。这组要有系统 powershell，所以放 Windows runner。
+  selftest-windows:
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22']
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Syntax checks
+        run: npm run check
+
+      - name: Offline selftest (81 cases)
+        run: node scripts/selftest.mjs
+
+  # 非 Windows 上本插件是"能看见状态、不动窗口"（payload 里 supported:false）。
+  # 这一 job 只保证语法与零依赖不被平台差异悄悄破坏。
+  syntax-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Syntax checks
+        run: npm run check
+
+  # 市场闸门 1：仓库里必须有 package.json 声明 dsh.bundle（只声明 dsh.client 会被直接拒）。
+  manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Manifest declares dsh.bundle and stays zero-dependency
+        run: |
+          node -e "
+          const m = require('./package.json');
+          if (!m.dsh || !m.dsh.bundle || !m.dsh.bundle.patch) { console.error('缺 dsh.bundle.patch'); process.exit(1); }
+          const declared = ['dependencies','peerDependencies','optionalDependencies'].flatMap(f => Object.keys(m[f] || {}));
+          if (declared.length) { console.error('插件不得声明运行时依赖：' + declared.join(', ')); process.exit(1); }
+          const fs = require('fs');
+          for (const e of (m.files || [])) { if (!e.startsWith('!') && !fs.existsSync(e)) { console.error('files 声明的不存在: ' + e); process.exit(1); } }
+          console.log('manifest OK');
+          "
+
+  # 脱敏闸门：这仓库会被推上 GitHub，scripts/ 还会被 npm pack 打进出口袋。
+  # 里面不该有：任何人本机的账号家目录、个人工作区绝对路径、写死的本机回环端口、
+  # 凭据样式（key/secret/password/token 赋值或前缀 key）、真实邮箱、机器指纹（SID、机器 GUID）。
+  # 判据本身带「必须判红」与「必须判绿」两组对照（条数由扫描器运行时自报，并被自检第 [10] 组盯住），先验它不放水也不误报。
+  desensitization:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Sensitive-data scan (账号名 / 本机路径 / 本机端口 / 凭据样式 / 邮箱 / 机器指纹)
+        run: npm run scan:sensitive

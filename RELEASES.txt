@@ -1,0 +1,112 @@
+Release ledger —— 本仓库打出的 tarball 与其 SHA-256
+规则：每次改动先升版本、先落 CHANGELOG 一节，再打包；已发布的 tarball 永不删除。
+（本文件与 PUBLISHING.md / submission/ / .github/ 只存在于发布归档目录；开发目录没有这几样。）
+
+## 0.1.0
+
+| 状态 | tarball | 字节 | SHA-256（本机打出） | 日期 |
+| --- | --- | --- | --- | --- |
+| **现行（owner 统一为 ecbob、脱敏闸定稿之后）** | `dist/dsh-window-size-keeper-0.1.0.tgz` | 74,868 | `f88f27e7f5dac892d1a06d8055e2ce0a2d59bf2a73908789a720dd8cc37c77b9` | 2026-10-19 |
+| 已作废（改 owner 与署名之前） | 同名 tarball 的第六版 | 73,679 | `0a7d3b5ec9b6f467d7b4a5038d65ccdefa124f329760d1dd1d5b5eb097f43ea0` | 2026-10-19 |
+| 已作废（脱敏之后、改 owner 之前） | 同名 tarball 的第五版 | 73,685 | `b334d8a08b710278b643f990e1fd601d8eb3d60a8df16f287c508e58a0354d39` | 2026-10-19 |
+| 已作废（扫描器只展开一层目录，修成递归之前） | 同名 tarball 的第四版 | 73,330 | `daac66875587e558815154548f82b4ac33d71751b883959822984c0f87b45ec2` | 2026-10-19 |
+| 已作废（补脱敏扫描之前） | 同名 tarball 的第三版 | 64,248 | `40f3d76ce9d57473d009285d3d1e97ac6174dca9ff3fa1d4a60722f48a04f5e9` | 2026-10-19 |
+| 已作废（补内部 key 保险之前） | 同名 tarball 的第二版 | 63,619 | `2bc34391bc69f859fd3ef63c3e6ae43f4046ed50d280ab13811fa7023f108a41` | 2026-10-19 |
+| 已作废（补双语之前） | 同名 tarball 的第一版 | 35,778 | `062dc62be199cbe31ae2d89de9d4e3d7cbce6778f4dd96eff5d6b84168ccf8a0` | 2026-10-19 |
+
+**为什么允许重打 0.1.0**：第一版 tarball 打出后，当天就补了「设置页文案 i18n + 英文主 README」。
+而 0.1.0 那时**从未发布过**——没有远程仓库、没有市场条目、没装进任何 profile，没人拿到过它。
+"已发布的 tarball 永不删除"这条规矩管的是别人能拿到的东西；这里改的是还没出门的那一份，
+所以按「发布前补齐」处理（CHANGELOG 里归进 0.1.0 并写明），作废那份的摘要留在上表可查。
+
+尺寸口径：`npm pack` 打的是 gzip 压缩后的字节数（现行 74,868 B）；里面 11 个未压缩文件合计 206,885 B。
+
+## 逐文件 SHA-256（可长期复用的锚点）
+
+`npm pack` 的 tarball 带文件 mtime，**同一内容在不同机器上重打，tarball 哈希会不同**；
+真正可核对的是逐文件摘要——内容与本机一致时它们必须逐条相等（这里给前 16 位，够定位差异）：
+
+| 包内路径 | SHA-256（前 16 位） |
+| --- | --- |
+| `package/lib/index.js` | `c23cc38c132000f2` |
+| `package/lib/client.js` | `202212d2067b44fd` |
+| `package/cordis.patch.yml` | `fb3c9512cd87ae73` |
+| `package/scripts/selftest.mjs` | `f30d80a8c5bbe05e` |
+| `package/scripts/check-sensitive.mjs`（脱敏扫描器） | `ddcda65bb37cdc21` |
+| `package/package.json` | `dd80528cfd87d858` |
+| `package/README.md`（英文主文档） | `ada960f475c4534e` |
+| `package/README_zh.md`（简体中文版） | `1a21acc5cf4da4df` |
+| `package/CHANGELOG.md` | `7935bd361c485ebc` |
+| `package/CHANGELOG.zh-CN.md` | `2bdd6af0260f7e26` |
+| `package/LICENSE` | `ffa5239155a5cb61` |
+
+本机实测：产物里这 11 个文件的摘要与工作副本 11/11 相同。
+
+## 与开发目录的关系（2026-10-19 实测）
+
+开发目录 `<工作区>\dsh-window-size-keeper`（`<工作区>` = 这份 checkout 在你机器上的位置）是桌面端 profile 现在 link 的那一份。
+按「两边都改」做完之后，**两边这 11 个文件逐字节相同**（就是上表那 11 条摘要，两边分别实测过）：
+
+`lib/index.js`、`lib/client.js`、`scripts/selftest.mjs`、`scripts/check-sensitive.mjs`、`cordis.patch.yml`、
+`package.json`、`README.md`、`README_zh.md`、`CHANGELOG.md`、`CHANGELOG.zh-CN.md`、`LICENSE`。
+
+只有这几样在归档目录里独多：`RELEASES.txt`（本文件）、`PUBLISHING.md`、
+`submission/data/plugins/ecbob__dsh-window-size-keeper.yml`、`.github/workflows/ci.yml`、
+`.gitignore`、`.gitattributes`、`dist/` 与 `.git`。
+
+> 历史口径变化要说清：第一次归档（本轮之前）是"复制归档、行为文件逐字节不动"，当时两边相同的是
+> `lib/index.js`(536e8370…)、`lib/client.js`(f57fb3bd…)、`cordis.patch.yml`(98e7c733…)、
+> `scripts/selftest.mjs`(de70a58f…)。随后按用户要求「两边都改」，这四个文件在**两边同时**改成了
+> 上表里的新摘要——所以"两边逐字节相同"这件事到现在仍然成立，只是内容换了。
+
+## 复跑办法（任何人可核对）
+
+```bash
+cd <本目录>
+mkdir -p dist
+npm run check && npm run scan:sensitive      # 语法 + 脱敏扫描
+node scripts/selftest.mjs                    # 81 项离线自检
+npm pack --pack-destination dist
+sha256sum dist/dsh-window-size-keeper-0.1.0.tgz   # Windows: certutil -hashfile dist\...tgz SHA256
+tar tzf dist/dsh-window-size-keeper-0.1.0.tgz     # 11 个文件，必须与上表一一对应
+```
+
+## 本机自检摘要（2026-10-19，全部实跑）
+
+| 命令 | 结果 |
+| --- | --- |
+| `npm run check` | `lib/index.js` / `lib/client.js` / `scripts/selftest.mjs` 语法全过 |
+| `npm run scan:sensitive`（两个目录各跑） | 9 条规则；扫描器自身的「必须判红 / 必须判绿」两组对照全通过（本轮实测 15 判红 / 20 判绿）；仓库零命中（开发目录实扫 11 个文件，归档目录实扫 17 个，含 `submission/**` 与 `.github/workflows/ci.yml` 这些嵌套件） |
+| `node scripts/selftest.mjs`（开发目录） | 合计 81 项通过，失败 0 项 |
+| `node scripts/selftest.mjs`（本归档目录） | 合计 81 项通过，失败 0 项 |
+| 第 [7] 组 | 真 `powershell.exe` + 不存在的句柄跑代理协议：`SET` 如实报失败，不谎报已改窗口 |
+| 第 [8] 组 | 中英词典各 60 条 key 逐条对齐、`{占位符}` 一致、英文表无中日韩残留（17 条原因码都在）；语言判定优先级与"繁体一律英文"全分支；宿主中英双别名逐项可取；两份 README 的章节结构一一对应 |
+| 第 [9] 组 | 假 DOM 里真渲染这个分区：英文一遍、中文一遍、没有语言服务的老客户端两遍；切语言不重建 DOM（正在输入的 1600 还在）、上一条提示跟着换语言、刷新定时器与语言订阅在卸载时释放；未知错误码退回宿主原文、不把码甩给用户；词典没注册成功时也不把 page.title 这类内部 key 甩到界面上 |
+| 产物逐文件摘要 vs 工作副本 | 11/11 相同 |
+| 开发目录 vs 本目录的 11 个共有文件 | 11/11 相同 |
+| email 规则的两次自我纠正 | 先误报 GitHub noreply 地址（那是由公开 handle 推导的，不含个人信息），后误报 `git@github.com:ecbob/…` 这种 SSH 写法——第二次暴露了 `(?!:)` 会被回溯绕过，得卡整个域名的末尾 `(?![A-Za-z:])`；两条都各钉了一份「必须判绿」样本，另跑了一次五条用例的判定实测（SSH 写法与占位/noreply 判绿、真邮箱判红） |
+| 扫描器自身的覆盖缺陷（已修） | 初版只展开目录一层，`submission/**` 与 `.github/workflows/ci.yml` 这类嵌套件**整个漏扫**；改成真递归后，自检里加了一条「嵌套文件必须被扫到」的断言钉住它 |
+| 脱敏之前的旧状态（把 `C:/Users/<账号>/…` 塞回 selftest）再跑扫描 | 当场红：报 2 处 `[account-home]`、自检第 [10] 组 FAIL（合计 80/1）；还原后文件摘要与上面的逐文件表一致——**这道闸不是装饰** |
+
+## owner / 署名 / 推送路线（2026-10-19 定稿）
+
+仓库在 **`ecbob`** 这个 GitHub 账号下（项目创建人即本仓库作者），所以包与文档里的 owner、`author`、
+`LICENSE` 版权行、投稿条目文件名与 `url:`/`name:` 全部写 `ecbob`，不再出现别的 handle。
+
+本机推送走 **SSH**：`git remote add origin git@github.com:ecbob/dsh-window-size-keeper.git` + `push -u origin main`。
+前提是账号里加着本机 `~/.ssh/id_ed25519.pub`；本机实测过——没加时 **22 端口与 443 端口都回
+`Permission denied (publickey)`**（网络是通的，卡的是授权）。22 被网络拦时在 `~/.ssh/config` 里给
+`github.com` 配 `Hostname ssh.github.com` + `Port 443`。HTTPS + 个人访问令牌是替代路线（GitHub 不收账号密码）。
+
+提交身份建议：`ecbob <ecbob@users.noreply.github.com>`（挂账号、不暴露个人邮箱）。
+
+## 还缺哪一步（写在这里免得下次误判）
+
+- 浏览器里的真机视觉确认：本机 Edge / Chrome 的 headless 模式被活动会话挡住（stdout 空、
+  `--screenshot` 不落盘、退出码 0/21 都拿不到图），所以第 [9] 组用的是假 DOM。
+  要看真的：打开桌面端「设置 → 窗口大小」，或在 DSH「设置 → 通用 → 语言」里切换看文案是否立刻换。
+- GitHub 仓库已建好（`ecbob/dsh-window-size-keeper`），**但本机这把公钥还没在账号里授权**，
+  所以 push 还没成功；授权之后（或改用令牌）推 `main`，再建 Release `v0.1.0` 传上面的 tarball 附件。
+  市场投稿 PR 仍未提。
+- 脱敏范围按用户选择只做本仓库；隔壁 `@dsh-pet/bridge` 的 `RELEASES.txt` 里还留着一处
+  `C:\Users\<账号>\AppData\Local\Programs\Python\…pythonw.exe`，那份仓库没有这套扫描器。

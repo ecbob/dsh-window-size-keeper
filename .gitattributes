@@ -1,0 +1,18 @@
+* text=auto eol=lf
+
+# 换行符钉死成 LF：本仓库源码/文档都以 LF 存，git 不做 CRLF 转换。
+# 理由（本机踩过）：文本 blob 带 CRLF 会违反仓库自己的 eol 声明，`git status` 会凭空显示
+# "已修改"，跨平台比对与自动门禁都会被骗。
+*.js text eol=lf
+*.mjs text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+
+# 二进制
+*.png binary
+*.ico binary
+*.tgz binary
+*.zip binary

@@ -1,0 +1,74 @@
+# 更新记录
+
+简体中文版；英文版见 [CHANGELOG.md](CHANGELOG.md)（两份一起维护）。
+
+格式：[Keep a Changelog](https://keepachangelog.com/en/1.1.0/)。
+版本口径：[语义化版本](https://semver.org/spec/v2.0.0.html)。
+发布台账（tarball 名 + SHA-256）：`RELEASES.txt`（只在发布归档目录里）。
+
+> **维护规矩：每次改动都要升版本、先落一条记录，再打包；已发布的 tarball 永不删除。**
+
+## [0.1.0] - 2026-10-19
+
+**首次公开发布。** 在这之前没有任何版本发布过，所以发出去的 0.1.0 就是插件现在的状态；
+它内部的开发节点在下面单列，让版本号与历史对得上。因为 0.1.0 从没离开过这台机器
+（没有远程、没有市场条目、没装进任何 profile），下面这些"发布前补齐"直接归进 0.1.0 并重打
+tarball，不去凭空造一个 0.1.1；被换掉的旧 tarball 摘要记在 `RELEASES.txt`，重打这件事可查。
+
+### 新增
+
+- 记录 DSH 桌面端（Electron）主窗口**最后一次的外框矩形**（物理像素）并在下次启动恢复、居中到主屏
+  工作区——应用本身每次启动都按固定 1280×820 重建主窗口，不这么做的话用户上次调的尺寸每次都丢。
+- 设置页「窗口大小」分区（DSH 桌面端 → 设置，与「插件」「桌宠」同一层，`order: 65`）：内置 12 个常用
+  分辨率（1024×768 … 3840×2160，含 1536×864 = 125% 缩放下的 1920×1080）、任意自定义宽高、
+  「恢复时居中」开关、「立即应用当前选择」；也可以在 patch 配置里用 `presets:` **整体覆盖**预选项。
+  选中即改窗口并持久化。
+- 恢复优先级：**设置页选择（`settings.json`）> patch config 的 `preset` > 上次尺寸（`state.json`）**。
+  两个 JSON 都是原子写（临时文件 + rename），落在 `~/.dsh/storages/window-size-keeper/`。
+- 本地 HTTP 路由 `/window-size-keeper/api/{state,select,apply,reset}`；非法输入会被拒绝并给出原因，
+  不会静默改设置。
+- 生命周期卫生：清理经 `ctx.fiber.effect` 正规注册（卸载时杀常驻代理、清定时器、同步落盘）；
+  代数文件 `state.json.gen` 让热重载的僵尸 fiber 永远不能用陈旧尺寸覆盖状态文件；启动恢复与
+  「立即应用」走同一条 `serialize()` 队列，不会两股 PowerShell 并发改同一窗口互相覆盖。
+- **设置页文案中英双语、语言跟随环境（2026-10-19）。** 界面文案全部收进 `lib/client.js` 的
+  `zh` / `en` 词典，并按 DSH 客户端的 locale 契约注册（`ctx.locale.register(NS, { zh, en })`）。
+  语言判定顺序：patch config 写死的 `language` → DSH 客户端当前语言（**切语言立即生效**，不刷新
+  页面也不重启）→ 插件自带的 `navigator` / `Intl` 判定，而这一层**只有简体中文算中文**
+  （`zh`、`zh-Hans*`、`zh-CN`、`zh-SG`、`zh-MY`），`zh-TW` / `zh-HK` / `zh-MO` / `zh-Hant*`
+  以及任何其它语言一律英文。切语言时**原地改文案、不重建 DOM**，你正在输入的自定义宽高不会被冲掉。
+- 宿主侧不做界面翻译：失败回报改成带稳定机器码的 `code`（`enum_failed`、`main_window_not_found`、
+  `superseded`、`set_pos_failed`、`windows_only`、`no_target`、`bad_json_body`、`unknown_route`、
+  `internal_error`），校验提示带 `noteCodes`，两者都由客户端按当前语言渲染；每个内置预选项都同时给
+  中英两份别名（`label` + `labelEn`）。认不出的码退回宿主给的原文——**绝不把错误码原样甩给用户**；
+  你没写 `labelEn` 的自定义预选项原样显示你起的名字，**绝不机器翻译**。
+- 新增 patch 配置键 `language`（默认 `auto`：跟随 DSH 当前语言；`zh` / `en` 钉死）。只认
+  `auto` / 强制中文 / 强制英文 三类，`zh-TW`、`zh-Hant` **不算**强制中文；写错的值退回 `auto`，
+  不会因为值奇怪就把设置页弄哑。
+- 离线自检 `scripts/selftest.mjs`：**81 项**，覆盖纯函数（居中/夹取/优先级/输入校验/主窗口识别/
+  设置读写）、HTTP 路由（假 ctx + 真 http server + 真 fetch）、真 `powershell.exe` 对不存在句柄的
+  代理协议（`SET` 必然失败 → 正好验"失败如实回报、不谎报已改窗口"）、文案 i18n（中英词典逐 key
+  对齐、`{占位符}` 一模一样、英文表里不许残留中文、语言判定优先级表），以及**用假 DOM 真渲染这个
+  分区**：中英各渲染一遍，并验"切语言不重建 DOM、正在输入的自定义宽高不丢、上一条提示也跟着换成
+  新语言、卸载时刷新定时器与语言订阅都释放，以及"词典没注册成功时绝不把 page.title 这类内部 key 甩到界面上"。
+- **脱敏扫描器 `scripts/check-sensitive.mjs`**（2026-10-19，发布前）：9 条规则扫「发布要用的文件 + 只在仓库里的发布文档」——账号家目录绝对路径（`C:\Users\<某人>`、`/home/<某人>`）、个人工作区绝对路径、写死的本机回环端口、凭据样式（赋值式的 key/secret/password/token，以及前缀式 key：`ghp_`、`sk-`、`AKIA`、`xoxb-`、`AIza-`）、41–63 位的十六进制长串（40 位与 64 位是 git 对象号与 SHA-256 摘要的标准形状，放行它们台账才写得出校验和）、真实邮箱、机器指纹（SID、机器 GUID、主机名）。它自带「必须判红」与「必须判绿」两组对照（条数由扫描器自己运行时报出，并被自检第 [10] 组盯住），防止自己退化成盖章机器；接进 `npm test`（另有 `npm run scan:sensitive`）与自检第 [10] 组，CI 里也有独立的一个 job。
+- 同轮清掉了扫描器自己逮到的东西：`scripts/selftest.mjs` 里那份假载荷的路径从真人账号路径改成 `<HOME>/…` 占位；README / README_zh / RELEASES / PUBLISHING 里的本机工作区绝对路径与代理端口改成 `<工作区>` 与 `$GIT_PROXY` 写法。`ecbob` / `ecbob` 保留——仓库地址、市场投稿条目、版权行总得有个主人。
+
+- **owner 与署名统一到真实 GitHub 账号（2026-10-19）**：仓库在 `ecbob/dsh-window-size-keeper` 下，所以 `package.json`（`repository.url` 与 `author`）、`LICENSE` 版权行、市场投稿条目（文件名改成 `submission/data/plugins/ecbob__dsh-window-size-keeper.yml`，`url:` 与 `name:` 跟着改）以及各处文档一律写 `ecbob`。提交身份建议用 `ecbob <ecbob@users.noreply.github.com>`——commit 挂在账号下，又不在公开历史里暴露个人邮箱。
+- `PUBLISHING.md` 改写成 SSH 路线（本机走 SSH；前提是账号里加着本机公钥，没加时 22 端口和 443 端口都会回 `Permission denied (publickey)`，本机实测过），并补上 ssh over 443 的备用配法与 HTTPS + 令牌 的替代路线。
+
+### 同一个 0.1.0 内的开发节点
+
+- **2026-10-11** —— 设置页分区、预选项与优先级链落地。
+- **2026-10-16** —— 提前恢复：不再等宿主报 `ready`，`apply` 那一刻就起常驻 Win32 代理，赶在窗口
+  **还隐藏**时把尺寸改完（桌面端是"隐藏创建 → `loadURL` → 才 `show()`"），于是窗口第一次露面就是
+  目标尺寸，启动动画不再播在错误分辨率上；盯不到才退回 `restoreDelayMs` 的轮询路径。判据与实测
+  证据见工作区报告 `DSH-BOOT-ANIMATION-REPAIR-2026-10-16.md`（单次枚举往返中位数 29 ms）。
+- **2026-10-19** —— 文档语言口径定了：`README.md` 改为**英文主文档**，`README_zh.md` 是它的简体中文
+  对应版（结构、表格、数字一致）；包描述的 `description` 改英文——GitHub 的 About 和 npm 只显示这一条
+  字符串，而市场投稿条目里 `description.en` 与 `description.zh` 两份都有。`cordis.patch.yml` 的注释
+  保持中文（它是运行中 profile 实际装配的那份，注释之外的数据没动）。
+
+### 不包含的东西
+
+没有任何依赖（只用 Node 内置模块 + 系统 `powershell.exe`），也没有任何外部网络请求。英文词典是
+实打实写全的，不是机翻兜底；不提供第三种语言，因为 DSH 自己的语言目录就只有 `zh` 和 `en`。

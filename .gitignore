@@ -1,0 +1,14 @@
+# 依赖与产物
+node_modules/
+dist/
+*.tgz
+
+# 构建/工具缓存
+__pycache__/
+*.py[cod]
+
+# 日志与本地临时物
+*.log
+npm-debug.log*
+.DS_Store
+.tmp-*

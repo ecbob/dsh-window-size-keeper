@@ -1,0 +1,40 @@
+# dsh-window-size-keeper bundle patch.
+# 注册 Cordis 插件行 `window-size-keeper`：记录 DSH 桌面端主窗口最后的外框尺寸，
+# 下次启动时自动恢复并居中。所有选项均可选（默认值已编译进插件），改完重启 profile 生效。
+#
+# 首选入口是**设置页**：DSH 桌面端「设置 → 窗口大小」分区（客户端半个插件 lib/client.js）
+#   可选常用分辨率与自定义宽高，选中即改窗口并持久化到
+#   ~/.dsh/storages/window-size-keeper/settings.json，下次启动沿用。
+#   优先级：settings.json（设置页）> 本文件的 config > 插件内置默认值。
+#   所以这里把 `preset` 留空即可——要长期固定某个尺寸，请在设置页里选，不必改本文件。
+#
+# 预选项（presets）：插件内置 12 个常用分辨率（1024×768 / 1280×720 / 1366×768 /
+#   1440×900 / 1536×864 / 1600×900 / 1920×1080 / 1920×1200 / 2560×1080 / 2560×1440 /
+#   3440×1440 / 3840×2160）。设置页里选「自定义…」可填任意宽高。
+#   要增删预选项，在 config 里加 `presets:` 列表（每项 { id, label, labelEn?, width, height }）
+#   即可**整体覆盖**内置列表（示例见文件末尾注释）。`labelEn` 只在英文界面用，省略就两种
+#   语言都显示你写的那一份——插件不会替你翻译自己起的名字。
+#
+# 设置页文案语言：`language` 默认 `auto` = 跟随 DSH 客户端当前语言（「设置 → 通用 → 语言」，
+#   切语言立刻生效，不必重启）；要钉死就写 `language: zh` 或 `language: en`。
+#   判据与兜底规则（只有简体中文算中文，zh-TW 等繁体写法走英文）见 README_zh.md「显示语言」。
+- insert:
+    - id: window-size-keeper
+      name: dsh-window-size-keeper
+      config:
+        enabled: true
+        saveIntervalMs: 15000
+        restoreDelayMs: 3000
+        centerOnRestore: true
+        # 空串 = 用"上次尺寸"；填某个 id（如 "1920x1080"）= 恢复时用该分辨率。
+        # 注意：设置页的选择（settings.json）会覆盖这一项。
+        preset: ""
+
+# 整体覆盖预选项列表示例（取消注释即用；设置页的下拉会跟着变成这一份清单）：
+# - insert:
+#     - id: window-size-keeper
+#       name: dsh-window-size-keeper
+#       config:
+#         presets:
+#           - { id: "1920x1080", label: "1920×1080（Full HD）", width: 1920, height: 1080 }
+#           - { id: "2560x1440", label: "2560×1440（QHD）", width: 2560, height: 1440 }
