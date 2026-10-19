@@ -172,15 +172,17 @@ tar tzf dist/dsh-window-size-keeper-0.1.0.tgz     # 11 个文件，必须与上�
   profile 并逐文件核对过。剩下两步归人做：
 
   ```
-  GIT_SSH_COMMAND="ssh -i ~/.ssh/<那把专用私钥> -o IdentitiesOnly=yes" git push origin main
-  GIT_SSH_COMMAND="ssh -i ~/.ssh/<那把专用私钥> -o IdentitiesOnly=yes" git push origin v0.1.1
+  git push origin main
+  git push origin v0.1.1
   gh release create v0.1.1 dist/dsh-window-size-keeper-0.1.1.tgz --target main
   ```
 
-  为什么带 `GIT_SSH_COMMAND`：本机 `~/.ssh/config` 是空的，而 GitHub 认的是新生成的那把专用 key
-  （默认名 `id_ed25519` 递出去被拒过，`Hi ecbob!` 是专用 key 回的），裸 `git push` 只会递默认那几把。
-  想省事就在 `~/.ssh/config` 里给 `github.com` 钉 `IdentityFile` + `IdentitiesOnly yes`（顺带也把
-  pnpm 的 `github:` 短写法治好了——它展开成 `git+ssh`，同样吃这个配置）。附件名必须是
+  推送身份已落到本机 `~/.ssh/config`（2026-10-20 写入：`Host github.com` + `IdentityFile` 指那把专用
+  私钥 + `IdentitiesOnly yes`）：实测不带 `-i` 时 `ssh -T git@github.com` 回 `Hi ecbob!`、裸
+  `git ls-remote origin` 读得到远程 ref，所以命令不用再带 `GIT_SSH_COMMAND`。那把 key 是**账号级**
+  而不是仓库 Deploy Key —— 判别的根据是它的公钥逐字出现在 `api.github.com/users/ecbob/keys` 的清单里
+  （该端点只列账号 key），所以它对 ecbob 有权限的每个仓库都有效。换台机器或没有这份 config 时的保险
+  写法：`GIT_SSH_COMMAND="ssh -i ~/.ssh/<那把专用私钥> -o IdentitiesOnly=yes" git push …`。附件名必须是
   `dsh-window-size-keeper-0.1.1.tgz`；建完把附件下载回来复算摘要，像 0.1.0 那样把"挂上去的就是本地
   那个包"算出来而不是推断。
 

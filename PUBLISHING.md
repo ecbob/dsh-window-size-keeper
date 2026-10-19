@@ -63,10 +63,18 @@ git remote add origin git@github.com:ecbob/dsh-window-size-keeper.git
 git push -u origin main
 ```
 
-> **本机走 SSH 的前提**：GitHub 账号里必须加着本机的公钥（内容见 `~/.ssh/id_ed25519.pub`
-> → Settings → SSH and GPG keys → New SSH key）。没加时 22 端口与 443 端口都会回
-> `Permission denied (publickey)`（本机实测过，两种都一样）。22 端口被网络拦时改用 ssh over 443：
-> 在 `~/.ssh/config` 里给 `github.com` 写 `Hostname ssh.github.com` 与 `Port 443`。
+> **本机走 SSH 的前提**：GitHub 账号里必须加着**本机实际会被递出去的那把**公钥（→ Settings → SSH and
+> GPG keys → New SSH key）。2026-10-20 实测的本机真实状况：真正认的是 `~/.ssh/id_ed25519_github_ecbob`，
+> 而且它是**账号级 key、不是仓库的 Deploy Key** —— 公钥逐字出现在 `api.github.com/users/ecbob/keys` 的
+> 清单里（这个端点只列账号 key），所以对该账号有权限的每个仓库都有效，不是只钉某一个仓库。默认名的
+> `id_ed25519` 递出去被拒过（GitHub 回 "Key is already in use"，它另有用途）；key 没递对时 22 端口与
+> 443 端口都回 `Permission denied (publickey)`（本机两种都实测过）。
+>
+> **`~/.ssh/config` 已钉好身份（2026-10-20 写入）**：`Host github.com` + `IdentityFile` 指那把专用私钥
+> + `IdentitiesOnly yes`。实测不带任何 `-i` 或 `GIT_SSH_COMMAND` 时，`ssh -T git@github.com` 回
+> `Hi ecbob!`、仓库里裸 `git ls-remote origin` 读得到远程 ref —— 所以 `git push` 与 pnpm 的 `github:`
+> 短写法（它展开成 `git+ssh`，同样吃这份 config）都直接可用。22 端口被网络拦时再补
+> `Hostname ssh.github.com` + `Port 443` 两行。
 >
 > 备用路线是 HTTPS + 个人访问令牌（GitHub 从 2021 年起不接受账号密码推 HTTPS）：
 > `git remote add origin https://github.com/ecbob/dsh-window-size-keeper.git` 然后 `git push -u origin main`。
