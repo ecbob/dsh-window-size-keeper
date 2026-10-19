@@ -12,3 +12,11 @@ __pycache__/
 npm-debug.log*
 .DS_Store
 .tmp-*
+
+# 本地 GitHub 令牌与发布辅助工具（2026-10-20 新增）：不进版本库、不在脉敏扇描清单里、
+# 也不随包（.gitignore 本来就不在 package.json 的 files 白名单里，所以这两条不改变 tarball 摘要）
+.github_tools/
+.github_token_temp/
+
+# harness 的 dsh-ops 在本目录留的更新锁（不是本仓库的东西；不钉住就会被 git commit -a 顺手带走）
+.dsh-ops-update-*.lock

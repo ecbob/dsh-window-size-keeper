@@ -145,3 +145,39 @@ HTTP 路由对非法输入如实拒绝、代理协议失败如实回报、双语
 | 恢复的尺寸 | 删 `~/.dsh/storages/window-size-keeper/state.json`（重置"上次尺寸"） |
 | 设置页选择 | 删 `~/.dsh/storages/window-size-keeper/settings.json`（回到"用上次尺寸"） |
 | 本归档目录 | 直接删：它是复制出来的副本，开发目录与 profile 的 link 都没被改动 |
+## 六、本地 GitHub 令牌与 Release 工具（2026-10-20 新增）
+
+`git push` 推得动代码与 tag，**推不出 Release**：Release 是 GitHub 的 API 对象加一次附件上传，而 tarball
+本来就不进版本库（`dist/` 被忽略，`files` 白名单里也没它）。本机既没有 `gh` CLI 也没有现成令牌，于是
+加两个**只在本地存在**的辅助脚本 —— 目录被 `.gitignore` 挡着，不进版本库、不进包、也不在脱敏清单里：
+
+| 脚本 | 干什么 | 取令牌的顺序 |
+| --- | --- | --- |
+| `.github_tools/get-token.sh` | 弄到一个可用令牌落到本地 temp 文件，并校验（`GET /user` 必须 200 且 login 对得上，回报 scope） | ① temp 里已有且能用就复用；② 问 git 的凭据助手（Windows 上是 GCM：对 `https://github.com` 跑 `git credential fill`，**首次可能弹一次浏览器登录**，脚本不能替你点；之后缓进 Windows 凭据管理器，本机就能静默取到）；③ 都不行就照脚本尾部提示把令牌粘进 temp 文件 |
+| `.github_tools/release.sh` | 按 `package.json` 的版本建或复用 Release、上传 `dist/<name>-<version>.tgz`，再把 GitHub 那份**下载回来复算 SHA-256**，另与 GitHub 回报的 `asset.digests.sha256` 比一次 | 两道复算都过才 `exit 0`；对不上就 `exit 1`，不许当成已完成（可反复跑：已有 Release 就复用，附件同大小就跳过上传） |
+
+三条硬规矩（都为"别把秘密泄露出去"服务）：
+
+1. **令牌值永不打印** —— 脚本最多报长度与前缀类型（`ghp_`、`github_pat_` 这类前缀本身不是秘密）。
+2. **令牌不进版本库、不进对话** —— 落盘位置 `.github_token_temp/token.txt`（写前 `umask 077`、写后
+   `chmod 600`）。临时交给会话用就写进这个文件再说一声，用完删掉。
+3. **调 API 用 `curl -K <0600 临时配置>`，不用 `-H`** —— `-H "Authorization: Bearer <令牌>"` 把令牌放进了
+   curl 自己的**进程命令行**，同机其它进程读得到；`-K` 从文件里读没这件事。
+
+**为什么这两处不会被脱敏闸门绊红（别乱改）**：扫描器 `scripts/check-sensitive.mjs` 的扫描目标是一条条
+**显式清单**（`SHIPPED` + `REPO_ONLY`）配自己的 `SKIP_DIRS`，**不是仓库根**，也不听 `.gitignore`。这两个
+目录都不在清单里所以不被扫。实测口径：往这两处各塞一份 `ghp_` 形状的文件再跑 `npm run scan:sensitive`
+-> 零命中，`npm test` -> 88/88。**别把它们加进 `REPO_ONLY`** —— 那会把真令牌照 `token-shape` 判红，而
+`check-sensitive.mjs` 是**随包文件**，为它改扫描器就得重切 tarball、挪 tag。
+
+顺带钉住的两条实测事实：
+
+- `.gitignore` 不在 `files` 白名单里、也不在 npm 的强制打包清单里：加完这几行重打一次包，tarball 摘要
+  与台账记的**逐字符相同**，`tar tzf` 里也搜不到这些名字 —— 所以改 `.gitignore` 不需要重切版本。
+- 多加了一条 `.dsh-ops-update-*.lock`：那是 harness 的 dsh-ops 在本目录留的更新锁，不是仓库的东西，
+  不钉住就会被 `git commit -a` 顺手带走（本机 `git check-ignore -v` 实测命中这条）。
+
+用之前要知道的两件事：Release 的标题与正文写在 `release.sh` 顶部两行（或用同名环境变量覆盖），**别写
+本机绝对路径或账号名** —— 台账与文档都在脱敏清单里，写了就红；附件名必须是 `<name>-<version>.tgz`，
+README 里"普通用户装产物"那条路认的就是这个名字。
+
