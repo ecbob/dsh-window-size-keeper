@@ -4,18 +4,34 @@
 
 ## 零、本机状态（重要）
 
-本目录是**发布用归档副本**。桌面端 profile 现在 link 的是**开发目录**
-`<工作区>\dsh-window-size-keeper`：
+本目录是**发布用归档副本**，而桌面端 profile 装的**不是本目录**，是打包产物：
 
 ```
 %USERPROFILE%\.dsh\profiles\desktop\package.json
-  "dsh-window-size-keeper": "link:<工作区>\\dsh-window-size-keeper"
+  "dsh-window-size-keeper": "file:../../.plugin-sources/dsh-window-size-keeper-<版本>.tgz"
+%USERPROFILE%\.dsh\.plugin-sources\dsh-window-size-keeper-<版本>.tgz   <- npm pack 的产物复制到这儿
 ```
 
-归档时**没有**改动这一条，也没有重启 profile。后来按用户要求「两边都改」（i18n 那一轮），
-两边现在是**同内容的两份**：10 个共有文件逐字节相同（`RELEASES.txt` 里有逐条摘要，也写清了
-哪些文件只在归档目录里）。开发目录那份改完要生效，仍然需要 profile 重组（重启桌面端）——
-客户端半个插件是页面加载的，热重载只换宿主侧那一半。
+所以改本目录的 `lib/*.js` **不再影响运行时**（profile 吃的是快照）。让改动生效的正式路线：
+`npm pack` -> 复制到 `.plugin-sources` -> `dsh plugin --profile desktop add "<绝对路径 tgz>"` -> 重启
+桌面端。调试期想跳过打包可以临时退回 `link:<工作区>\dsh-window-size-keeper`（改回 link 也要重启桌面端；
+而且客户端那一半是页面加载的，热重载只换宿主侧那一半，页面还得刷新一次）。
+
+2026-10-20 实机撞出来的三条本机口径，别再按旧文档做：
+
+- `dsh plugin` 的每条**写**操作都要带 `--config.minimum-release-age=0`。bundled pnpm 11 的发布年龄闸门
+  （24 小时）会在 lockfile 复核阶段拒 `dshmarket@1.66.43`，而 `minimumReleaseAgeExclude` 在 `remove`
+  那条复核路径上不被认——这是 profile 里那批 npm registry 依赖的事，与本插件无关。顺手加
+  `--prefer-offline` 能躲开 registry 抖动：本机一次 `add` 就是这么失败的（三条 `UND_ERR_DESTROYED`
+  重试用尽，失败的安装会被回滚成"已卸未装"）。
+- spec 必须传**绝对路径**。写成 `file:../../.plugin-sources/x.tgz` 会被解析成"某盘根下的
+  `.plugin-sources\x.tgz`"直接 ENOENT。传绝对路径能装成功，但 pnpm 会把 manifest 的依赖行与 lock 的
+  `specifier:` 都写成绝对形式，与 profile 里另外三条 sibling 的相对写法不一致，得手改归一（就这两处；
+  `version:` 与 `resolution.tarball` pnpm 自己写出来就是相对的）。
+- 卸掉 `link:` 依赖之后，**必须核实 `node_modules` 里的条目真物理消失**再装新的。本机 `pnpm remove`
+  报过成功却把目录链接留在原地，随后 `add` 撞 `ERR_PNPM_EPERM`（rename），那次中途失败还把开发目录的
+  `.git` 削残（只剩 `objects/` + `refs/` + `packed-refs`，`HEAD`/`config`/`index` 全没），靠
+  `git init` + `symbolic-ref` + `git reset` 复原：内容零损失，永久丢掉的是 reflog 与原有 `.git/config`。
 
 ## 一、四道自动闸门逐条核对
 

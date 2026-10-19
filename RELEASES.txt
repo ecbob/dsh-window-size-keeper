@@ -2,11 +2,71 @@ Release ledger —— 本仓库打出的 tarball 与其 SHA-256
 规则：每次改动先升版本、先落 CHANGELOG 一节，再打包；已发布的 tarball 永不删除。
 （本文件与 PUBLISHING.md / submission/ / .github/ 只存在于发布归档目录；开发目录没有这几样。）
 
+## 0.1.1
+
+| 状态 | tarball | 字节 | SHA-256（本机打出） | 日期 |
+| --- | --- | --- | --- | --- |
+| **现行（本机已装进 desktop profile；GitHub 还没推）** | `dist/dsh-window-size-keeper-0.1.1.tgz` | 86,164 | `45aa27807b3df5c0cf72852e0e12c401f025353a0775eab2f1038ab0a66c609a` | 2026-10-20 |
+| 已作废（闸门口径修之前，同一版本号的第一版） | 同名 tarball 的第一版 | 85,433 | `ca8f170a596a22a213ba02d258b08d2d36ae08725fe8d5b27a8fd08d832a23b9` | 2026-10-20 |
+
+**为什么允许重打 0.1.1**：第一版 tarball 打出后当天补了一条闸门口径——自检第 [10] 组硬写"至少扫到 12 个
+文件"，而 12 是**仓库专属**的文件数（随包只有 11 个），照 README 在**装好的包**里跑自检的普通用户会凭空
+红一项（我自己实机也撞上）。0.1.1 那时还没出门：没 push、没 GitHub Release、市场没条目，唯一拿到它的
+是本机 profile，而 profile 正由同一个会话换成正式那份。规矩管的是别人能拿到的东西，所以按"发布前补齐"
+处理，作废那份的摘要留在上表可查。tag `v0.1.1` 也随之从 tag 对象 `885a02e9994adfbfd4070879d5cefa599b8fbaf0`
+（指向 `9cf9a283…`）移到最终提交 `12d54314acf9e720e9d79d6d4997937d438d0edf`（新 tag 对象
+`bff80229265234c6cd6b0b66eccd4d15b0e3ed78`）——没推送过的东西移动无害。
+
+### 逐文件 SHA-256（0.1.1，可长期复用的锚点）
+
+`npm pack` 的 tarball 带文件 mtime，**同一内容换台机器重打，tarball 摘要会不同**；能长期核对的是逐文件
+摘要。本机 0.1.1 的两个 tarball（现行与作废）里这 11 个文件是同一批内容，所以下表对两者都成立：
+
+| 包内路径 | SHA-256（前 16 位） |
+| --- | --- |
+| `package/lib/index.js` | `d9f3f49f5ed19872` |
+| `package/lib/client.js` | `e5bb24415141d361` |
+| `package/cordis.patch.yml` | `809991c15c766cc4` |
+| `package/scripts/selftest.mjs` | `186da16a8bf692d5` |
+| `package/scripts/check-sensitive.mjs`（脱敏扫描器） | `7d9910e00a8aee64` |
+| `package/package.json` | `e928af3c93d9713a` |
+| `package/README.md`（英文主文档） | `24dc0ac472345398` |
+| `package/README_zh.md`（简体中文版） | `435d6acaa21a7742` |
+| `package/CHANGELOG.md` | `443a6ce78f75feb1` |
+| `package/CHANGELOG.zh-CN.md` | `42ff74e3fa6dd931` |
+| `package/LICENSE` | `ffa5239155a5cb61` |
+
+装到 profile 之后的核对（2026-10-20 实测）：`~/.dsh/.plugin-sources/dsh-window-size-keeper-0.1.1.tgz`
+与上表所属的 tarball 同摘要；`node_modules/dsh-window-size-keeper` 里 11 个文件与包内**逐条相等**
+（不一致 0 处），条目是真目录不是链接，`package.json` 里版本 `0.1.1`。
+
+### 这一版修的两处实机缺陷（以及为什么不是"参数没调好"）
+
+1. **设置页「当前主窗口外框」一直显示"读取中…"** —— 2026-10-19 i18n 那轮的回归：那行是用
+   `setText(current, "current.loading")` 注册的，闭包**永久**留在 `sinks` 里，而 `applyState` 的最后一步
+   就是 `localizeStatic()`（重放全部 sinks），于是每次成功取数后刚写进去的真实尺寸被当场覆写回去。
+   现场排除过：GET 带 content-type 的 body 挂起、CORS 缺 ACAO、`client-modules` pkgMeta 自愈、客户端
+   热推送、以及"桌面转发把 `Content-Encoding: gzip` 原样透传导致渲染端解不开"（`WITHHELD_RESPONSE_HEADERS`
+   里明确剥掉 content-encoding / content-length / transfer-encoding，且用 Node 复刻透传两种写法都能
+   `json()` 成功）。**定性靠 A/B**：同一份新自检跑 0.1.0 的 `lib/client.js` -> FAIL「首刷后那行不对：
+   读取中…」；跑修好的那份 -> 88 项全绿。改法：那一行自己是一条 sink，文案按最新载荷现算。
+2. **拖完马上退出会把这次拖动整个丢掉** —— 采样固定 15 秒，而 `state.json` 与退出兜底写的都是"最后一次
+   **采样到**的矩形"，不是"最后一次真实矩形"。改成自适应：待机 `saveIntervalMs`（15s）→ 采到与上一轮
+   不同就 `activeSampleMs`（1s）并保持 `activeTailMs`（10s），而且下一轮只在上一轮跑完之后才排（慢读取
+   排队、不叠加）。另加 `followManualResize`（默认开）：采到宽高被手动改了就把「恢复尺寸」选择写成
+   自定义 = 那个尺寸。
+   真机实测（本机桌面端，从插件外部改窗口）：1850×980 -> 选择 **2.51 秒**后翻成 `自定义 1850×980`；
+   快轮询尾巴内再改 1840×970 -> **1.29 秒**；插件自己 `/select` 改回 1920×1080 之后，过了一个待机节拍
+   选择仍是具名 `1920x1080`（自我标记生效，具名分辨率不会被插件自己改成自定义）。
+   **口径必须说清**：首次检测仍受待机节拍支配（最坏等满 15 秒，这次 2.5 秒是相位运气），"1 秒"指的是
+   变化被看到之后的节奏；要压首检延迟就调小 `saveIntervalMs`（代价是每次都得起一个 PowerShell，
+   冷启动约 0.7 秒）。
+
 ## 0.1.0
 
 | 状态 | tarball | 字节 | SHA-256（本机打出） | 日期 |
 | --- | --- | --- | --- | --- |
-| **现行（已推送：main + tag `v0.1.0`）** | `dist/dsh-window-size-keeper-0.1.0.tgz` | 75,239 | `e6ca432cec5ddd98273f3a7a2e07e78527423e9534de826632a2c34838bf09de` | 2026-10-19 |
+| **已发布（GitHub Release `v0.1.0`；GitHub 上的现行版，直到 0.1.1 推过去建好 Release）** | `dist/dsh-window-size-keeper-0.1.0.tgz` | 75,239 | `e6ca432cec5ddd98273f3a7a2e07e78527423e9534de826632a2c34838bf09de` | 2026-10-19 |
 | 已作废（闸修 SSH 口径之前） | 同名 tarball 的第七版 | 74,868 | `f88f27e7f5dac892d1a06d8055e2ce0a2d59bf2a73908789a720dd8cc37c77b9` | 2026-10-19 |
 | 已作废（改 owner 与署名之前） | 同名 tarball 的第六版 | 73,679 | `0a7d3b5ec9b6f467d7b4a5038d65ccdefa124f329760d1dd1d5b5eb097f43ea0` | 2026-10-19 |
 | 已作废（脱敏之后、改 owner 之前） | 同名 tarball 的第五版 | 73,685 | `b334d8a08b710278b643f990e1fd601d8eb3d60a8df16f287c508e58a0354d39` | 2026-10-19 |
@@ -104,6 +164,25 @@ tar tzf dist/dsh-window-size-keeper-0.1.0.tgz     # 11 个文件，必须与上�
 提交身份建议：`ecbob <ecbob@users.noreply.github.com>`（挂账号、不暴露个人邮箱）。
 
 ## 还缺哪一步（写在这里免得下次误判）
+
+- **0.1.1 待发（2026-10-20）**：提交 `12d54314acf9e720e9d79d6d4997937d438d0edf` 已在本地 `main`
+  （比 `origin/main` 领先 1），注解 tag `v0.1.1` 已打好（tag 对象 `bff80229265234c6cd6b0b66eccd4d15b0e3ed78`，
+  tagger 身份实测为 `ecbob <ecbob@users.noreply.github.com>`，没写成本机账号名@主机名）；正式包
+  `45aa27807b3df5c0cf72852e0e12c401f025353a0775eab2f1038ab0a66c609a`（86,164 B）已装进本机 desktop
+  profile 并逐文件核对过。剩下两步归人做：
+
+  ```
+  GIT_SSH_COMMAND="ssh -i ~/.ssh/<那把专用私钥> -o IdentitiesOnly=yes" git push origin main
+  GIT_SSH_COMMAND="ssh -i ~/.ssh/<那把专用私钥> -o IdentitiesOnly=yes" git push origin v0.1.1
+  gh release create v0.1.1 dist/dsh-window-size-keeper-0.1.1.tgz --target main
+  ```
+
+  为什么带 `GIT_SSH_COMMAND`：本机 `~/.ssh/config` 是空的，而 GitHub 认的是新生成的那把专用 key
+  （默认名 `id_ed25519` 递出去被拒过，`Hi ecbob!` 是专用 key 回的），裸 `git push` 只会递默认那几把。
+  想省事就在 `~/.ssh/config` 里给 `github.com` 钉 `IdentityFile` + `IdentitiesOnly yes`（顺带也把
+  pnpm 的 `github:` 短写法治好了——它展开成 `git+ssh`，同样吃这个配置）。附件名必须是
+  `dsh-window-size-keeper-0.1.1.tgz`；建完把附件下载回来复算摘要，像 0.1.0 那样把"挂上去的就是本地
+  那个包"算出来而不是推断。
 
 - 浏览器里的真机视觉确认：本机 Edge / Chrome 的 headless 模式被活动会话挡住（stdout 空、
   `--screenshot` 不落盘、退出码 0/21 都拿不到图），所以第 [9] 组用的是假 DOM。
