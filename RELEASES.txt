@@ -114,6 +114,9 @@ tar tzf dist/dsh-window-size-keeper-0.1.0.tgz     # 11 个文件，必须与上�
   认证时 GitHub 回 `Hi ecbob!`）；原来那把 `id_ed25519` 递出去仍被拒，GitHub 对它的提示是
   "Key is already in use"，具体是登记成了签名 key 还是挂在别的账号下没去查——反正不动它、新 key 通了。
   `.git/config` 里没有凭证也没有代理残留（SSH 不需要）。
+- 网络口径更正（本机实测）：`github.com` 的 git-http 端点与 `api.github.com` **直连与走本地代理都返回 200**，
+  所以早先那句"`github.com:443` 被 SNI 级阻断、HTTPS 必须带代理"不再成立（PUBLISHING 已同步改）。
+  同一批实测还确认：仓库匿名可访问（`api.github.com/repos/…` 返回 200）= **Public**，`/releases` 返回空数组。
 - 还剩这几步：GitHub Release `v0.1.0` 与 tarball 附件（本机没有 `gh` CLI，只能网页上传或给 token 走 API）；
   确认仓库可见性是 **Public**（市场闸门要求）；Actions 首跑结果（Windows 那两个 job 会跑 check + 81 项自检）；
   市场投稿 PR 未提。
