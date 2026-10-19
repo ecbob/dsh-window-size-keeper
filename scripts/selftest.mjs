@@ -45,7 +45,9 @@ const {
 	pickMainWindow,
 	pickEarlyMainWindow,
 	windowArea,
-	findPreset
+	findPreset,
+	nextSampleDelay,
+	shouldAdoptManualSize
 } = internals;
 
 let passed = 0;
@@ -251,6 +253,55 @@ check("windowArea：缺数字段与脏值都算 0，不抛错", () => {
 	assert.equal(windowArea({ L: "x", T: 0, R: 10, B: 10 }), 0);
 	assert.equal(windowArea(null), 0);
 	assert.equal(windowArea({ L: 0, T: 0, R: 10, B: 20 }), 200);
+});
+
+console.log("[5c] 采样节奏与手动改尺寸的采纳（nextSampleDelay / shouldAdoptManualSize）");
+
+check("nextSampleDelay：距最后一次变化不足尾巴时长就走快轮询（默认 1 秒），超过就退回待机节奏", () => {
+	const o = { idleMs: 15000, activeMs: 1000, tailMs: 10000 };
+	assert.equal(nextSampleDelay(100000, 95000, o), 1000, "尾巴之内该 1 秒一次，而不是 15 秒");
+	assert.equal(nextSampleDelay(100000, 90001, o), 1000, "边界内 1 ms（差 9999）仍算尾巴之内");
+	assert.equal(nextSampleDelay(100000, 89999, o), 15000, "边界外 1 ms（差 10001）该退回待机节奏");
+	assert.equal(nextSampleDelay(100000, 0, o), 15000, "从没变过就老老实实待机节奏");
+	assert.equal(nextSampleDelay(100000, 100000, o), 1000, "这一轮刚刚变过 → 下一次就是快轮询");
+});
+
+check("nextSampleDelay：写反、写 0、写负数、写垃圾都不失控（不快于待机，也不排成 0 毫秒狂采样）", () => {
+	assert.equal(nextSampleDelay(100000, 99990, { idleMs: 2000, activeMs: 9000, tailMs: 10000 }), 2000, "active 比 idle 大时取 idle");
+	assert.equal(nextSampleDelay(100000, 99990, { idleMs: 15000, activeMs: 0, tailMs: 10000 }), 1000, "active 写 0 退回默认 1000");
+	assert.equal(nextSampleDelay(100000, 99990, { idleMs: 15000, activeMs: -5, tailMs: 10000 }), 1000, "active 写负数同样退回默认");
+	assert.equal(nextSampleDelay(100000, 99990, { idleMs: 100, activeMs: 1000, tailMs: 10000 }), 1000, "idle 写 100（低于下限 1000）按下限，不会排成 0.1 秒");
+	assert.equal(nextSampleDelay(100000, 99990, { idleMs: 15000, activeMs: 1000, tailMs: 0 }), 1000, "tail 写 0 退回默认 10 秒（0 不当\"关掉快轮询\"解释）");
+	assert.equal(nextSampleDelay(100000, 99990, { idleMs: 15000, activeMs: 1000, tailMs: -1 }), 1000, "tail 写负数同样退回默认");
+	assert.equal(nextSampleDelay(100000, 99990, {}), 1000, "整份配置缺省走 DEFAULTS");
+	assert.equal(nextSampleDelay(100000, Number.NaN, { idleMs: 15000, activeMs: 1000, tailMs: 10000 }), 15000, "lastChangeAt 不是数字就当从没变过");
+});
+
+check("shouldAdoptManualSize：宽高变了才把选择切成自定义；只挪位置不算；本代第一次采样没有基准", () => {
+	const P = (w, h, x, y) => ({ width: w, height: h, x: x || 0, y: y || 0 });
+	assert.deepEqual(shouldAdoptManualSize(null, P(1500, 900), null, {}), { adopt: false, consumeSelfApplied: false }, "第一次采样没有'之前'，谈不上手动");
+	assert.deepEqual(shouldAdoptManualSize(P(1920, 1080), P(2000, 1200), null, {}), { adopt: true, consumeSelfApplied: false }, "宽高变了就该切自定义");
+	assert.deepEqual(shouldAdoptManualSize(P(1920, 1080, 0, 0), P(1920, 1080, 320, 200), null, {}), { adopt: false, consumeSelfApplied: false }, "只挪位置不动大小：custom 存的是宽高，不该动选择");
+	assert.deepEqual(shouldAdoptManualSize(P(1920, 1080), P(1922, 1081), null, {}), { adopt: false, consumeSelfApplied: false }, "2px 以内算没变（与 applyRect 那把尺同口径）");
+	assert.equal(shouldAdoptManualSize(P(1920, 1080), P(1923, 1081), null, {}).adopt, true, "差 3px 就算变（同一把尺的另一侧）");
+});
+
+check("shouldAdoptManualSize：插件自己改的那一次不算手动，且标记只兑现一次", () => {
+	const P = (w, h) => ({ width: w, height: h, x: 0, y: 0 });
+	// 启动恢复 / 设置页应用把窗口改成 1920×1080：下一次采到同一个矩形不能算用户手动，
+	// 否则用户选的"1920×1080（Full HD）"会被插件自己改成"自定义 1920×1080"。
+	assert.deepEqual(shouldAdoptManualSize(P(1280, 820), P(1920, 1080), P(1920, 1080), {}), { adopt: false, consumeSelfApplied: true });
+	// 这一轮采到的是别的尺寸 → 用户确实又拖了，标记不能把它吞掉
+	assert.deepEqual(shouldAdoptManualSize(P(1280, 820), P(2100, 1300), P(1920, 1080), {}), { adopt: true, consumeSelfApplied: false });
+});
+
+check("shouldAdoptManualSize：followManualResize 关掉时只记状态、绝不动选择；脏输入不抛错", () => {
+	const P = (w, h) => ({ width: w, height: h, x: 0, y: 0 });
+	const off = { followManualResize: false };
+	assert.deepEqual(shouldAdoptManualSize(P(1920, 1080), P(2000, 1200), null, off), { adopt: false, consumeSelfApplied: false }, "开关关了还改选择就是越权");
+	assert.deepEqual(shouldAdoptManualSize(P(1920, 1080), P(2000, 1200), P(1900, 1000), off), { adopt: false, consumeSelfApplied: false }, "关掉时也别顺手吃标记");
+	assert.deepEqual(shouldAdoptManualSize(undefined, undefined, undefined, undefined), { adopt: false, consumeSelfApplied: false }, "全是脏值也不抛");
+	assert.equal(shouldAdoptManualSize(P(1920, 1080), P(2000, 1200), "字符串标记", {}).adopt, true, "selfApplied 不是对象就当没有");
 });
 
 console.log("[6] HTTP 路由（假 ctx + 真 http server + 真 fetch）");
@@ -568,6 +619,16 @@ async function main() {
 			assert.notEqual(zh[i], en[i], `第 ${i + 1} 个章节标题两份一模一样（有一边没翻）`);
 		}
 	});
+	await run("GET /state 下发采样节奏与 followManualResize（排障与设置页都靠它）", async () => {
+		const state = await get("/state");
+		// 这一组的假 apply 故意把 saveIntervalMs 传成 1e9（自检期间不想真采样），所以这里钉的是
+		// "下发的是生效值"，不是内置默认——排障时看 /state 就能知道当前实际用的节奏。
+		assert.equal(state.body.saveIntervalMs, 1e9, "/state 该下发生效的待机节奏");
+		assert.equal(state.body.activeSampleMs, DEFAULTS.activeSampleMs);
+		assert.equal(state.body.activeTailMs, DEFAULTS.activeTailMs);
+		assert.equal(state.body.followManualResize, true);
+	});
+
 	await run("GET /state 载荷带 language 与中英两份预选项别名", async () => {
 		const state = await get("/state");
 		assert.equal(state.body.language, "auto");
@@ -829,6 +890,27 @@ async function main() {
 			assert.equal(page.byClass("wsk-input")[0].placeholder, "Width");
 			assert.equal(page.registration.options.label(), "Window size");
 			assert.equal(CJK.test(text), false, clip(text));
+		} finally { page.kill(); restoreGlobals(); }
+	});
+
+	await run("「当前外框尺寸」那行：取到数据就显示真实尺寸，定时刷新与切语言重放 sinks 之后仍然是它", async () => {
+		// 2026-10-19 i18n 那轮给静态文案加了 sinks，但这一行原先是用 setText(current, "current.loading") 注册的：
+		// 那条闭包**永久**留在 sinks 里，而 applyState 的最后一步正是 localizeStatic()（重放全部 sinks），
+		// 于是每次成功取数后真实尺寸都被当场覆写回"读取中…"。实机现象：分区一直转圈、控制台无报错、
+		// /state 每 10 秒 200 正常返回——所以这条钉子钉三件事：首刷写对、定时刷不改回、切语言重放也不改回。
+		const page = await renderSection({ active: "zh", nav: { languages: ["en-US"] } });
+		try {
+			const cur = () => page.byClass("wsk-current")[0].textContent;
+			assert.equal(cur().includes("当前主窗口外框：1920×1080（位置 320, 160）"), true, `首刷后那行不对：${clip(cur())}`);
+			assert.equal(cur().includes("读取中"), false, `那行还留着 loading（sinks 里的旧闭包又赢了）：${clip(cur())}`);
+			page.timers[0].fn(); // 模拟一次 10 秒定时刷新：applyState 跑完就会重放 sinks
+			await tick();
+			await tick();
+			assert.equal(cur().includes("当前主窗口外框：1920×1080（位置 320, 160）"), true, `定时刷新后那行被改回：${clip(cur())}`);
+			page.setActive("en");
+			await page.fireLang(); // 切语言：整页重放 sinks，文案换成英文，但绝不能退回 loading
+			assert.equal(cur().includes("Main window frame: 1920×1080 at (320, 160)"), true, `切语言重放后那行被改回：${clip(cur())}`);
+			assert.equal(cur().includes("Loading"), false, `切语言后退回英文 loading：${clip(cur())}`);
 		} finally { page.kill(); restoreGlobals(); }
 	});
 

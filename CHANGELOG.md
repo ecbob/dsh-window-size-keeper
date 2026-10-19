@@ -12,6 +12,50 @@ Release ledger (tarball names + SHA-256): `RELEASES.txt` (publish archive direct
 > tarball is packed, and no released tarball is ever deleted. The English and Chinese
 > versions of this file are updated together.**
 
+## [0.1.1] - 2026-10-20
+
+Both defects below were found by installing the plugin from the artifact published on GitHub and
+using it against a real desktop window. Each one now has an offline nail; the first had been invisible
+to all 81 pre-existing checks, because the fake-DOM render never asserted the line that stayed broken.
+
+### Added
+
+- **Adaptive sampling cadence** (`activeSampleMs: 1000`, `activeTailMs: 10000`): the outer frame is read
+  every `saveIntervalMs` (15 s) while nothing changes, and the moment a sample differs from the previous
+  one the next reads move to 1 s until 10 s has passed since the last observed change. A sample is
+  rescheduled only after the previous one returns, so a slow PowerShell queues rather than stacking.
+  Before this, resizing and immediately quitting lost that resize: the state file - and the exit hook,
+  which flushes the same cache - could be up to 15 s stale, so the next start went back to the size
+  from before the drag.
+- **`followManualResize` (on by default)**: when a sampled change is judged to be a manual change of
+  width/height, the plugin writes `settings.json` itself and the "Restore size" selection becomes
+  `custom` = that size, so the next start follows the window you actually dragged to and the settings
+  page shows it selected. Only width/height count (moving a window without resizing leaves the selection
+  alone), and a rectangle the plugin set itself - start-up restore, "apply now" - never counts: without
+  that rule, restoring `1920x1080 (Full HD)` would silently rewrite it into `custom 1920x1080`.
+- Self-check group `[5c]`: `nextSampleDelay` and `shouldAdoptManualSize` covered branch by branch
+  (boundaries, inverted/zero/negative/garbage config, dirty inputs), plus a `[6]` check that `/state`
+  publishes the effective cadence and the switch. Offline checks: 81 -> 88.
+
+### Fixed
+
+- The "current outer frame" line (当前主窗口外框) **never left "Loading…" / "读取中…"** in the settings section -
+  a regression from the 2026-10-19
+  i18n round that made static text re-render without rebuilding the DOM. That line was registered as a
+  `setText(current, "current.loading")` sink, and `applyState` ends with `localizeStatic()`, which
+  replays every sink: the size written a moment earlier was overwritten with the loading text on every
+  successful poll (every 10 s), so the section looked like a request that never finished even though
+  `GET /state` answered 200 in ~1 ms and the console stayed clean. The line is now a sink of its own
+  that renders from the latest payload; a new render check asserts it shows the real frame after the
+  first refresh, after a timer-driven refresh, and after a language switch replays all sinks.
+
+### Changed
+
+- `saveIntervalMs` now means the **idle** cadence rather than "the only cadence". Its default and the
+  value shipped in `cordis.patch.yml` stay `15000`.
+- Both READMEs gained a section on cadence and following a manual resize (heading parity between the
+  two files is itself a self-check), and the configuration table lists the three new keys.
+
 ## [0.1.0] - 2026-10-19
 
 First public release. Nothing was ever published before today, so 0.1.0 is the current state
