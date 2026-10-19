@@ -980,7 +980,11 @@ async function main() {
 	});
 	check("扫描确实覆盖到发布清单里的每个文件（连扫描器自己也在内），不是扫了个空", () => {
 		const report = pii.scanPathsDetailed([...pii.SHIPPED, ...pii.REPO_ONLY], { root: repoRoot });
-		assert.ok(report.scanned.length >= 12, `只扫了 ${report.scanned.length} 个文件：${report.scanned.join(", ")}`);
+		// 下限不许硬写成仓库专属的文件数：随包只有 11 个文件，仓库里还多几个仓库专属件
+		// （RELEASES / PUBLISHING / CI / 投稿条目）。原先硬写 12，让"在装好的包里跑自检"的普通
+		// 用户凭空红一项（2026-10-20 实机撞上过一次）。真正的覆盖由下面那份逐文件清单和嵌套件的
+		// 递归检查钉住，这里只兜"扫描不是一遍空"。
+		assert.ok(report.scanned.length >= 11, `只扫了 ${report.scanned.length} 个文件，少于随包的 11 个：${report.scanned.join(", ")}`);
 		for (const entry of ["lib/index.js", "lib/client.js", "scripts/selftest.mjs", "scripts/check-sensitive.mjs", "cordis.patch.yml", "package.json", "README.md", "README_zh.md", "CHANGELOG.md", "CHANGELOG.zh-CN.md", "LICENSE"]) {
 			assert.ok(report.scanned.includes(entry), `扫描没覆盖到 ${entry}`);
 		}

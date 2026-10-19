@@ -36,6 +36,11 @@ to all 81 pre-existing checks, because the fake-DOM render never asserted the li
 - Self-check group `[5c]`: `nextSampleDelay` and `shouldAdoptManualSize` covered branch by branch
   (boundaries, inverted/zero/negative/garbage config, dirty inputs), plus a `[6]` check that `/state`
   publishes the effective cadence and the switch. Offline checks: 81 -> 88.
+- Self-check `[10]` stopped hardcoding "at least 12 files were scanned" - a repository-only file count.
+  Coverage was already pinned by the explicit per-file list (all 11 shipped files) plus the recursion
+  checks, so the floor is now just "not empty"; running the self-check inside an **installed** package
+  (11 files, none of the repo-only ones present) reports 88/88 instead of going red on a number that
+  only ever fit the repository layout. A plain user following the README hit exactly that.
 
 ### Fixed
 
