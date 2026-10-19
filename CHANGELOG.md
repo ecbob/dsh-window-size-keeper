@@ -15,7 +15,7 @@ Release ledger (tarball names + SHA-256): `RELEASES.txt` (publish archive direct
 ## [0.1.2] - 2026-10-20
 
 Docs only - no plugin code changed. Verified rather than asserted: the 0.1.2 tarball differs from 0.1.1
-in exactly three shipped files (the two READMEs and `package.json`'s version line); `lib/`,
+in exactly five shipped files (the two READMEs, the two changelogs and `package.json`'s version line); `lib/`,
 `scripts/` and `cordis.patch.yml` are byte-identical, so every offline check result from 0.1.1 still
 applies verbatim.
 

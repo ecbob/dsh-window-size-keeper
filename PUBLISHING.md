@@ -164,6 +164,11 @@ HTTP 路由对非法输入如实拒绝、代理协议失败如实回报、双语
 3. **调 API 用 `curl -K <0600 临时配置>`，不用 `-H`** —— `-H "Authorization: Bearer <令牌>"` 把令牌放进了
    curl 自己的**进程命令行**，同机其它进程读得到；`-K` 从文件里读没这件事。
 
+4. **令牌用完即删（2026-10-20 定的准则，脚本自己执行，不靠人记）** —— `release.sh` 在附件上传完并
+   复算完之后立刻删掉 `.github_token_temp/token.txt`，不留存；要再发一版就重跑 `get-token.sh`（本机实测
+   GCM 会静默再给一份，不必重新登录）。在上传之前就失败的早退路径**留着**文件，免得白取一次。这条只管
+   本地：GitHub 那侧的撤销（Settings → SSH and GPG keys / Applications）仍然另算，删文件不等于撤令牌。
+
 **为什么这两处不会被脱敏闸门绊红（别乱改）**：扫描器 `scripts/check-sensitive.mjs` 的扫描目标是一条条
 **显式清单**（`SHIPPED` + `REPO_ONLY`）配自己的 `SKIP_DIRS`，**不是仓库根**，也不听 `.gitignore`。这两个
 目录都不在清单里所以不被扫。实测口径：往这两处各塞一份 `ghp_` 形状的文件再跑 `npm run scan:sensitive`
