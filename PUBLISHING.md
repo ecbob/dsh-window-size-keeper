@@ -63,7 +63,7 @@ git push -u origin main
 > 本机实测过的两条坑（都踩过一次）：① `GIT_SSH_COMMAND` 只作用于 git 自己调起的那个 ssh，
 > 你直接跑 `ssh -T git@github.com` 不会带上 `-i`，拿它"验证 key 加没加上"会误判成没加上；
 > ② 要多把 key 里指定一把，得写 `-i <私钥路径> -o IdentitiesOnly=yes`；Git Bash 的 `/c/Users/…`
-> 与 Windows 的 `C:\Users\…` 两种路径写法，本机 OpenSSH_10.5p1 都收（实测都能认证）。
+> 与 Windows 的 `<盘符>:\Users\<账号>\…` 两种路径写法，本机 OpenSSH_10.5p1 都收（实测都能认证）。
 
 ## 三、装到 profile（两种）
 
@@ -86,8 +86,8 @@ dev_reload_package   dsh-window-size-keeper
       第 [8] 组文案 i18n（中英词典各 60 条 key 对齐、`{占位符}` 一致、英文表无中日韩残留、
       语言判定优先级全分支、两份 README 章节结构一一对应）、
       第 [9] 组假 DOM 真渲染（英文一遍、中文一遍、无语言服务两遍、词典注册失败也不甩 key、切语言不重建 DOM）
-- [x] `npm pack --pack-destination dist` → 11 个文件、74,868 B、
-      SHA-256 `f88f27e7f5dac892d1a06d8055e2ce0a2d59bf2a73908789a720dd8cc37c77b9`；
+- [x] `npm pack --pack-destination dist` → 11 个文件、75,239 B、
+      SHA-256 `e6ca432cec5ddd98273f3a7a2e07e78527423e9534de826632a2c34838bf09de`；
       产物逐文件摘要 == 工作副本摘要（11/11），逐条记在 `RELEASES.txt`
 - [x] 开发目录与本归档目录的 11 个共有文件逐字节相同（这几轮都是「两边都改」）
 - [x] 脱敏：仓库里不再写死任何人本机的账号家目录、工作区绝对路径与本机代理端口（占位写法见下）

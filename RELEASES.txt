@@ -6,7 +6,8 @@ Release ledger —— 本仓库打出的 tarball 与其 SHA-256
 
 | 状态 | tarball | 字节 | SHA-256（本机打出） | 日期 |
 | --- | --- | --- | --- | --- |
-| **现行（owner 统一为 ecbob、脱敏闸定稿之后）** | `dist/dsh-window-size-keeper-0.1.0.tgz` | 74,868 | `f88f27e7f5dac892d1a06d8055e2ce0a2d59bf2a73908789a720dd8cc37c77b9` | 2026-10-19 |
+| **现行（已推送：main + tag `v0.1.0`）** | `dist/dsh-window-size-keeper-0.1.0.tgz` | 75,239 | `e6ca432cec5ddd98273f3a7a2e07e78527423e9534de826632a2c34838bf09de` | 2026-10-19 |
+| 已作废（闸修 SSH 口径之前） | 同名 tarball 的第七版 | 74,868 | `f88f27e7f5dac892d1a06d8055e2ce0a2d59bf2a73908789a720dd8cc37c77b9` | 2026-10-19 |
 | 已作废（改 owner 与署名之前） | 同名 tarball 的第六版 | 73,679 | `0a7d3b5ec9b6f467d7b4a5038d65ccdefa124f329760d1dd1d5b5eb097f43ea0` | 2026-10-19 |
 | 已作废（脱敏之后、改 owner 之前） | 同名 tarball 的第五版 | 73,685 | `b334d8a08b710278b643f990e1fd601d8eb3d60a8df16f287c508e58a0354d39` | 2026-10-19 |
 | 已作废（扫描器只展开一层目录，修成递归之前） | 同名 tarball 的第四版 | 73,330 | `daac66875587e558815154548f82b4ac33d71751b883959822984c0f87b45ec2` | 2026-10-19 |
@@ -19,7 +20,7 @@ Release ledger —— 本仓库打出的 tarball 与其 SHA-256
 "已发布的 tarball 永不删除"这条规矩管的是别人能拿到的东西；这里改的是还没出门的那一份，
 所以按「发布前补齐」处理（CHANGELOG 里归进 0.1.0 并写明），作废那份的摘要留在上表可查。
 
-尺寸口径：`npm pack` 打的是 gzip 压缩后的字节数（现行 74,868 B）；里面 11 个未压缩文件合计 206,885 B。
+尺寸口径：`npm pack` 打的是 gzip 压缩后的字节数（现行 75,239 B）；里面 11 个未压缩文件合计 207,770 B。
 
 ## 逐文件 SHA-256（可长期复用的锚点）
 
@@ -32,7 +33,7 @@ Release ledger —— 本仓库打出的 tarball 与其 SHA-256
 | `package/lib/client.js` | `202212d2067b44fd` |
 | `package/cordis.patch.yml` | `fb3c9512cd87ae73` |
 | `package/scripts/selftest.mjs` | `f30d80a8c5bbe05e` |
-| `package/scripts/check-sensitive.mjs`（脱敏扫描器） | `ddcda65bb37cdc21` |
+| `package/scripts/check-sensitive.mjs`（脱敏扫描器） | `7d9910e00a8aee64` |
 | `package/package.json` | `dd80528cfd87d858` |
 | `package/README.md`（英文主文档） | `ada960f475c4534e` |
 | `package/README_zh.md`（简体中文版） | `1a21acc5cf4da4df` |
@@ -76,7 +77,7 @@ tar tzf dist/dsh-window-size-keeper-0.1.0.tgz     # 11 个文件，必须与上�
 | 命令 | 结果 |
 | --- | --- |
 | `npm run check` | `lib/index.js` / `lib/client.js` / `scripts/selftest.mjs` 语法全过 |
-| `npm run scan:sensitive`（两个目录各跑） | 9 条规则；扫描器自身的「必须判红 / 必须判绿」两组对照全通过（本轮实测 15 判红 / 20 判绿）；仓库零命中（开发目录实扫 11 个文件，归档目录实扫 17 个，含 `submission/**` 与 `.github/workflows/ci.yml` 这些嵌套件） |
+| `npm run scan:sensitive`（两个目录各跑） | 9 条规则；扫描器自身的「必须判红 / 必须判绿」两组对照全通过（本轮终态实测 16 判红 / 22 判绿）；仓库零命中（开发目录实扫 11 个文件，归档目录实扫 17 个，含 `submission/**` 与 `.github/workflows/ci.yml` 这些嵌套件） |
 | `node scripts/selftest.mjs`（开发目录） | 合计 81 项通过，失败 0 项 |
 | `node scripts/selftest.mjs`（本归档目录） | 合计 81 项通过，失败 0 项 |
 | 第 [7] 组 | 真 `powershell.exe` + 不存在的句柄跑代理协议：`SET` 如实报失败，不谎报已改窗口 |
@@ -84,6 +85,8 @@ tar tzf dist/dsh-window-size-keeper-0.1.0.tgz     # 11 个文件，必须与上�
 | 第 [9] 组 | 假 DOM 里真渲染这个分区：英文一遍、中文一遍、没有语言服务的老客户端两遍；切语言不重建 DOM（正在输入的 1600 还在）、上一条提示跟着换语言、刷新定时器与语言订阅在卸载时释放；未知错误码退回宿主原文、不把码甩给用户；词典没注册成功时也不把 page.title 这类内部 key 甩到界面上 |
 | 产物逐文件摘要 vs 工作副本 | 11/11 相同 |
 | 开发目录 vs 本目录的 11 个共有文件 | 11/11 相同 |
+| SSH 相关的三次口径修正 | 闸先误报 GitHub noreply 地址（由公开 handle 推导，不是个人邮箱），再误报 `git@github.com:ecbob/…` 的 scp 式写法（暴露 `(?!:)` 会被回溯绕过，得卡整个域名末尾 `(?![A-Za-z:])`），再误报裸主机名 `git@github.com`（`git` 是 SSH 协议的固定用户名）与 SSH key 指纹 `SHA256:…`（由公钥导出的公开标识符）。四次都改判据而不是改文档躲开，且各配一条「必须判绿」样本；另加一条"同样的串不带指纹上下文就必须判红"的样本，防豁免被滥用 |
+| 流程上的一次自纠 | 第一次推完之后才看见闸报我写进 PUBLISHING 的 `C:\Users\<账号>\…` 那种写法（而且那次把扫描接在 `| tail -1` 后面，退出码被管道吃了，链式命令照旧往下走）—— 之后改成：扫描与自检的退出码直接取，绿了才 commit/push |
 | email 规则的两次自我纠正 | 先误报 GitHub noreply 地址（那是由公开 handle 推导的，不含个人信息），后误报 `git@github.com:ecbob/…` 这种 SSH 写法——第二次暴露了 `(?!:)` 会被回溯绕过，得卡整个域名的末尾 `(?![A-Za-z:])`；两条都各钉了一份「必须判绿」样本，另跑了一次五条用例的判定实测（SSH 写法与占位/noreply 判绿、真邮箱判红） |
 | 扫描器自身的覆盖缺陷（已修） | 初版只展开目录一层，`submission/**` 与 `.github/workflows/ci.yml` 这类嵌套件**整个漏扫**；改成真递归后，自检里加了一条「嵌套文件必须被扫到」的断言钉住它 |
 | 脱敏之前的旧状态（把 `C:/Users/<账号>/…` 塞回 selftest）再跑扫描 | 当场红：报 2 处 `[account-home]`、自检第 [10] 组 FAIL（合计 80/1）；还原后文件摘要与上面的逐文件表一致——**这道闸不是装饰** |

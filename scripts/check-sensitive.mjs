@@ -55,7 +55,7 @@ export const RULES = [
 	},
 	{
 		id: "opaque-base64",
-		why: "大小写混合 + 数字的 32 位以上长串是随机密钥的典型形状（纯 hex 走 digest-hex 规则）",
+		why: "大小写混合 + 数字的 32 位以上长串是随机密钥的典型形状（纯 hex 走 digest-hex 规则）；行里带 SHA256:/指纹/fingerprint/ssh-keygen 的算 SSH key 指纹——那由公钥导出，是公开标识符",
 		pattern: /\b(?=[A-Za-z0-9+/]{32,}={0,2}\b)(?=[^ ]*[a-z])(?=[^ ]*[A-Z])(?=[^ ]*\d)[A-Za-z0-9+/]{32,}={0,2}\b/
 	},
 	{
@@ -65,7 +65,7 @@ export const RULES = [
 	},
 	{
 		id: "email",
-		why: "真实邮箱一粘就进公开仓库；占位域名（example.*）、GitHub 的 noreply 地址、user@host:path 这种 SSH 写法放行——noreply 由公开 handle 推导，SSH 写法的域名末尾紧跟冒号",
+		why: "真实邮箱一粘就进公开仓库；占位域名（example.*）、GitHub 的 noreply 地址、以及 git@host 这种 SSH 固定用户名放行——noreply 由公开 handle 推导，SSH 写法的域名末尾紧跟冒号",
 		pattern: /[A-Za-z0-9._%+-]+@(?!example\.(?:com|org|net)\b|users\.noreply\.github\.com\b)[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![A-Za-z:])/
 	},
 	{
@@ -89,6 +89,12 @@ export const PLACEHOLDER_HINT = /<[^\s>]{1,24}>|\$\{?[A-Za-z_][A-Za-z0-9_]*\}?|%
 export function lineHits(line, rule) {
 	const match = rule.pattern.exec(line);
 	if (!match) return null;
+	if (rule.id === "opaque-base64" && /(?:SHA(?:256|512):|指纹|fingerprint|ssh-keygen|publickey)/i.test(line)) return null; // SSH key 指纹由公钥导出，是公开标识符，不是秘密
+	if (rule.id === "email") {
+		// git@github.com 这类是 SSH 协议的固定用户名，不是邮箱；个人邮箱的 local 部分不会是 git
+		const at = match[0].indexOf("@");
+		if (at > 0 && match[0].slice(0, at).toLowerCase() === "git") return null;
+	}
 	if (rule.id === "long-opaque" && SHA_HINT.test(line)) return null;
 	if ((rule.id === "account-home" || rule.id === "personal-workspace" || rule.id === "local-port") && PLACEHOLDER_HINT.test(line)) return null;
 	return match[0];
@@ -183,6 +189,7 @@ export const MUST_CATCH = [
 	{ line: "用 AKIA1B2C3D4E5F6G7H8I 这把 key 复现", rule: "token-shape" },
 	{ line: "key 4f8a2c6e9b1d3f5a7c2e9b4d6f1a8c3e5b7d2f9a4c6e8b1d", rule: "digest-hex" },
 	{ line: "secret 3f9C1a2B7d8E4f5A6b7C8d9E0f1A2b3C4d5E6f7A8b9C0d1E", rule: "opaque-base64" },
+	{ line: "随机串 7hVjUILVjaRL+YfjFbqJMxMbYp1KrViEXSHqDiOBFJY 出现在配置里就要确认", rule: "opaque-base64" },
 	{ line: "投稿说明里别直接写 zhangsan@company-mail.cn", rule: "email" },
 	{ line: "MachineGuid 从注册表读出来对照", rule: "machine-id" },
 	{ line: "域内 SID S-1-5-21-1234567890-123456789-123456789-1001", rule: "machine-id" }
@@ -205,6 +212,8 @@ export const MUST_NOT_CATCH = [
 	"邮箱占位写法 you@example.com 不算泄露",
 	"提交身份写成 ecbob <ecbob@users.noreply.github.com> 也不算个人邮箱",
 	"SSH 写法 git@github.com:ecbob/dsh-window-size-keeper.git 不是邮箱",
+	"命令 `ssh -T git@github.com` 里的 git@github.com 也不是邮箱",
+	"SSH key 指纹 `SHA256:7hVjUILVjaRL+YfjFbqJMxMbYp1KrViEXSHqDiOBFJY` 由公钥导出，算公开标识符",
 	"npm run check 里是 node --check",
 	"文档里写 `api_key: …` 与 `password = <占位>` 都算举例，不是凭据",
 	"临时目录前缀是 wsk-selftest-，它不是密钥",
