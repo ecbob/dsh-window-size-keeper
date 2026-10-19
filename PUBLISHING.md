@@ -181,3 +181,19 @@ HTTP 路由对非法输入如实拒绝、代理协议失败如实回报、双语
 本机绝对路径或账号名** —— 台账与文档都在脱敏清单里，写了就红；附件名必须是 `<name>-<version>.tgz`，
 README 里"普通用户装产物"那条路认的就是这个名字。
 
+实测补充（2026-10-20 建 `v0.1.1` 那次撞出来的，别再照直觉做）：
+
+- **附件的 `content_type` 事后改不了**：`PATCH /repos/<owner>/<repo>/releases/assets/<id>` 只收 `name`
+  （和 `label`），带上 `content_type` 直接 422，原文是 `"content_type" is not a permitted key`。口径只能
+  从上传那一步写对 —— 上传时**只发一个** `Content-Type: application/gzip`。`release.sh` 原先把默认的
+  `application/json` 与调用方给的头并排发出，GitHub 取了第一个，附件就被记成 `application/json`（而
+  0.1.0 那颗是 `application/gzip`），只能删掉重传（`DELETE` 回 204，再 `POST` 回 201）。
+- **GitHub 这个视角不回报 release 附件的 `digests`**：`v0.1.0` 与 `v0.1.1` 两颗都是 `None`（匿名与带
+  鉴权都一样）。所以脚本把它判成"不适用"而不是 FAIL；真正算得出的一道是把附件**下载回来复算
+  SHA-256**，与本地包逐字符相同才允许说"挂上去的就是本地那个包"。
+- **别用 `bash -x` 跑这两个脚本**：`-x` 会把 `TOKEN=` 与那几条 `printf` 的实参原样写进 trace，令牌本体
+  就在里面。要调试就把 trace 落在被忽略的 work 目录里并当场删掉（本次就是这么做的）。
+- 一次跑完该核对的东西（`v0.1.1` 的实际结果）：Release 与附件的 id 都从 API 回读；`state=uploaded`、
+  `content_type=application/gzip`、`size` 与本地包一致；从 `browser_download_url` 下载回来 86,164 B、
+  SHA-256 与本地包一致；`/releases/latest` 已指向 `v0.1.1`；CI 五个 job 全绿（`selftest-windows (20)`、
+  `selftest-windows (22)`、`syntax-linux`、`desensitization`、`manifest`）。

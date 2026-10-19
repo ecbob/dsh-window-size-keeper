@@ -6,7 +6,7 @@ Release ledger —— 本仓库打出的 tarball 与其 SHA-256
 
 | 状态 | tarball | 字节 | SHA-256（本机打出） | 日期 |
 | --- | --- | --- | --- | --- |
-| **现行（已推送：main + tag `v0.1.1`；本机 desktop profile 已装；GitHub Release 还没建）** | `dist/dsh-window-size-keeper-0.1.1.tgz` | 86,164 | `45aa27807b3df5c0cf72852e0e12c401f025353a0775eab2f1038ab0a66c609a` | 2026-10-20 |
+| **现行（已推送 main + tag，Release 已建并复算过；本机 desktop profile 已装）** | `dist/dsh-window-size-keeper-0.1.1.tgz` | 86,164 | `45aa27807b3df5c0cf72852e0e12c401f025353a0775eab2f1038ab0a66c609a` | 2026-10-20 |
 | 已作废（闸门口径修之前，同一版本号的第一版） | 同名 tarball 的第一版 | 85,433 | `ca8f170a596a22a213ba02d258b08d2d36ae08725fe8d5b27a8fd08d832a23b9` | 2026-10-20 |
 
 **为什么允许重打 0.1.1**：第一版 tarball 打出后当天补了一条闸门口径——自检第 [10] 组硬写"至少扫到 12 个
@@ -171,16 +171,23 @@ tar tzf dist/dsh-window-size-keeper-0.1.0.tgz     # 11 个文件，必须与上�
   peel 到提交 `12d54314acf9e720e9d79d6d4997937d438d0edf`，**与本地逐字符相同**（`git ls-remote` 实测），
   匿名 `GET api.github.com/repos/…/tags` 回两条（`v0.1.1 → 12d54314…` 与 `v0.1.0`）。全程没带
   `GIT_SSH_COMMAND`，身份靠同日写进 `~/.ssh/config` 的那三行（见 PUBLISHING §二）。
-- **还缺：v0.1.1 的 GitHub Release 没建**（同日实测 `/releases` 仍只有一条 = v0.1.0 那份附件）。
-  本机**没有 `gh` CLI**，也没有任何可用的 GitHub 令牌（环境变量为空、没有 `.netrc`、
-  `git credential fill` 对 `github.com` 取不到东西、DSH 凭据存储里没有条目），所以三条路：
-  ① 浏览器里在 tag `v0.1.1` 上新建 Release 并上传 `dist/dsh-window-size-keeper-0.1.1.tgz`
-  （**附件名必须就叫这个**，普通用户那条路靠它）；② 临时给一个 classic `repo`（或 fine-grained 且给
-  这个仓库 Contents: Read and write）令牌，我照 0.1.0 那次的 API 路线建好并把附件**下载回来复算
-  摘要**——令牌只在进程环境里用，不落盘、不进 git 配置，用完你在 GitHub 上撤掉；③ 先装 `gh`
-  （`winget install GitHub.cli`）再走：
-
-  ```
+- **v0.1.1 的 GitHub Release 已建并复算（2026-10-20，走本地令牌 + API）**：Release id 417855557、
+  `tag_name=v0.1.1`、`target_commitish=main`、`draft=false`、`prerelease=false`；附件 id 657734683、
+  名字 `dsh-window-size-keeper-0.1.1.tgz`、`size=86164`、`state=uploaded`、`content_type=application/gzip`
+  （与 0.1.0 那颗同）。**复算**：从 `browser_download_url` 下载回来 86,164 B、SHA-256
+  `45aa27807b3df5c0cf72852e0e12c401f025353a0775eab2f1038ab0a66c609a`，与本表那行逐字符相同；
+  `/releases/latest` 已指向 `v0.1.1`。页面 https://github.com/ecbob/dsh-window-size-keeper/releases/tag/v0.1.1
+  令牌来源与工具的口径见 PUBLISHING 第六节（本机没有 `gh` CLI；令牌由 git 的凭据助手给出、落在被忽略的
+  `.github_token_temp/token.txt`，值不打印不进版本库）。踩到的两个坑（附件 `content_type` 事后改不了、
+  GitHub 不回报 release 附件 digests）也写在那里。
+- **Actions 首跑结果已看过（同日）**：每次 push 触发 5 个 job（`selftest-windows (20)`、
+  `selftest-windows (22)`、`syntax-linux`、`desensitization`、`manifest`），最新 run `39342369250`
+  （head `3cde53cc`）与 `39341171512`、`39341014451` 三条全部 `completed / success` —— 也就是 88 项
+  自检在 GitHub 的 Windows runner 上（Node 20 与 22 两套）也是绿的。
+- 还剩：提市场投稿 PR（`submission/data/plugins/ecbob__dsh-window-size-keeper.yml` 已在仓库里；那条硬
+  门槛是"仓库满 1 天"）；用完把 git 凭据助手那份令牌在 GitHub 上撤掉（Settings → SSH and GPG keys /
+  Applications）；默认名 `id_ed25519` 那把在 GitHub 上到底是什么用途（"Key is already in use"）没去查，
+  反正现在推送用的是专用 key、`~/.ssh/config` 已钉好身份。
   gh release create v0.1.1 dist/dsh-window-size-keeper-0.1.1.tgz --target main
   ```
 
