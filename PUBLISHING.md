@@ -53,9 +53,10 @@ git push -u origin main
 > 在 `~/.ssh/config` 里给 `github.com` 写 `Hostname ssh.github.com` 与 `Port 443`。
 >
 > 备用路线是 HTTPS + 个人访问令牌（GitHub 从 2021 年起不接受账号密码推 HTTPS）：
-> `git remote add origin https://github.com/ecbob/dsh-window-size-keeper.git` 然后
-> `git -c http.proxy="$GIT_PROXY" push -u origin main`——这台机器 `github.com:443` 被 SNI 级阻断，
-> HTTPS 必须带本地代理：`export GIT_PROXY="http://127.0.0.1:<端口>"`（端口自己填，仓库里刻意不写死）。
+> `git remote add origin https://github.com/ecbob/dsh-window-size-keeper.git` 然后 `git push -u origin main`。
+> 网络口径以实测为准：2026-10-19 本机实测 `github.com` 的 git-http 端点与 `api.github.com` **直连与走本机本地
+> 代理（`export GIT_PROXY="http://127.0.0.1:<端口>"`，端口自己填，仓库里刻意不写死）都是 200**——早先记录的
+> "`github.com:443` 被 SNI 级阻断、HTTPS 必须带代理"已不适用当前网络状态，`-c http.proxy="$GIT_PROXY"` 备着即可。
 >
 > 首次建仓时的提交身份写法：`git -c user.name=ecbob -c user.email=ecbob@users.noreply.github.com …`
 > ——GitHub 的 noreply 地址让你 commit 挂在你的账号下，又不把个人邮箱暴露在公开历史里。
