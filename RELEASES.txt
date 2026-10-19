@@ -2,6 +2,57 @@ Release ledger —— 本仓库打出的 tarball 与其 SHA-256
 规则：每次改动先升版本、先落 CHANGELOG 一节，再打包；已发布的 tarball 永不删除。
 （本文件与 PUBLISHING.md / submission/ / .github/ 只存在于发布归档目录；开发目录没有这几样。）
 
+## 0.1.2
+
+| 状态 | tarball | 字节 | SHA-256（本机打出） | 日期 |
+| --- | --- | --- | --- | --- |
+| **现行（已推送 main + tag，Release 已建并复算；本机 desktop profile 已装）** | `dist/dsh-window-size-keeper-0.1.2.tgz` | 88,381 | `973c03fadb675e215def8d917b81c27decbc24c85e8373641af10eef7469bfbb` | 2026-10-20 |
+
+**这一版只改文档**：两份 README、两份 CHANGELOG 与 `package.json` 的版本行；`lib/`、`scripts/`、
+`cordis.patch.yml` 与 0.1.1 **逐字节相同**（`diff -rq` 两个解包目录实测差异条数正是 5，不是嘴上说），
+所以 0.1.1 那 88 项离线自检的结论对这一版照旧逐字成立。已发布的 0.1.1 tarball 与 Release 保留不删 ——
+规矩管的是别人能拿到的东西。改由：README 里"带版本号目录当发布快照 / profile 用 link: 链接本目录 /
+81 项分十组"等说法已与现状不符（那条两目录模型在大扫除那一轮就退役了），顺手把报告 §8-2 悬着的
+"普通用户从 Release 装的三步"补进安装节。
+
+### 逐文件 SHA-256（0.1.2，可长期复用的锚点）
+
+| 包内路径 | SHA-256（前 16 位） |
+| --- | --- |
+| `package/lib/index.js` | `d9f3f49f5ed19872`（与 0.1.1 同） |
+| `package/lib/client.js` | `e5bb24415141d361`（同） |
+| `package/cordis.patch.yml` | `809991c15c766cc4`（同） |
+| `package/scripts/selftest.mjs` | `186da16a8bf692d5`（同） |
+| `package/scripts/check-sensitive.mjs`（脱敏扫描器） | `7d9910e00a8aee64`（同） |
+| `package/package.json` | `7736ee913da10f55` |
+| `package/README.md`（英文主文档） | `53878abcbb277853` |
+| `package/README_zh.md`（简体中文版） | `638ba91b2f9e0899` |
+| `package/CHANGELOG.md` | `71ca6baaf9e41ecc` |
+| `package/CHANGELOG.zh-CN.md` | `a88eff22ad15ba29` |
+| `package/LICENSE` | `ffa5239155a5cb61`（同） |
+
+### 0.1.2 的发布链（2026-10-20，含一次我自己的流程滑点与纠正）
+
+- 提交 `66a0901c65a52df378763f8c000174afb959002b`（README 校准 + 升版本 + 双语 CHANGELOG + PUBLISHING
+  第六节第 4 条准则"令牌用完即删"），注解 tag `v0.1.2` 的 tag 对象
+  `41cde4ba613611ef64bbb65021947e1c7f322e11` 指向它；tagger 仍是 `ecbob <ecbob@users.noreply.github.com>`。
+- **滑点如实记**：第一次 `git commit --amend` 我漏了 `-a`，两份 CHANGELOG 的措辞修正（我把"随包差异
+  文件数"写成三个，`diff` 实测是五个 —— CHANGELOG 也在 `files` 白名单里）留在工作树里没进 tag，于是
+  tag 一度落在 `f4f64ad`（旧措辞）而包是从**改准后**的工作树打的，即 tag 树 ≠ 包。趁 Release 未建、
+  无人消费过，删 tag 重打到 `66a0901` 并 `push --force`（旧 tag 对象
+  `fb376edd4d435998c965269a5e2712c540f5091c` 记此可查），随后复验 **tag 树里 11 个随包文件与包逐字
+  一致、不一致 0 处**。教训两条：amend 要带 `-a`（或先 `git add`）；"tag 树 == 包"必须在建 Release
+  **之前**验，不是之后。
+- Release：id 417862359；附件 id 657756293、`size=88381`、`state=uploaded`、
+  `content_type=application/gzip`。复算：从 `browser_download_url` 下载回来 88,381 B、SHA-256 与本表
+  那行逐字符相同（复算用的下载第 1、2 次失败、第 3 次成功 —— 本机网络当天抖过一回，脚本因此加了三次
+  重试）。`/releases/latest` 已指向 `v0.1.2`。
+- 令牌生命周期（本仓库新准则）：令牌由 git 凭据助手静默给出、落在被忽略的 `.github_token_temp/`，
+  `release.sh` 在附件上传并复算完**当场删掉**该文件（本机实测：跑完目录里只剩 `work/`；删掉后再跑
+  `get-token.sh` 又能静默取回，恢复路径也实测过）。GitHub 那侧的撤销是另一回事，见本节末。
+- Actions：每次 push 触发 5 个 job（`selftest-windows (20)`、`selftest-windows (22)`、`syntax-linux`、
+  `desensitization`、`manifest`），本日各次 push 全部 `completed / success`。
+
 ## 0.1.1
 
 | 状态 | tarball | 字节 | SHA-256（本机打出） | 日期 |
@@ -188,6 +239,9 @@ tar tzf dist/dsh-window-size-keeper-0.1.0.tgz     # 11 个文件，必须与上�
   门槛是"仓库满 1 天"）；用完把 git 凭据助手那份令牌在 GitHub 上撤掉（Settings → SSH and GPG keys /
   Applications）；默认名 `id_ed25519` 那把在 GitHub 上到底是什么用途（"Key is already in use"）没去查，
   反正现在推送用的是专用 key、`~/.ssh/config` 已钉好身份。
+- **GitHub 上现行是 v0.1.2**（2026-10-20 同日：文档校准版，随包代码与 0.1.1 逐字节相同；v0.1.1 与它的
+  Release 都保留）。还剩两件：市场投稿 PR；把 git 凭据助手那份 OAuth 令牌在 GitHub 上撤掉（本地文件按
+  准则已由 `release.sh` 删除，但那只管本地）。
   gh release create v0.1.1 dist/dsh-window-size-keeper-0.1.1.tgz --target main
   ```
 
