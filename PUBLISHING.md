@@ -175,12 +175,10 @@ HTTP 路由对非法输入如实拒绝、代理协议失败如实回报、双语
 -> 零命中，`npm test` -> 88/88。**别把它们加进 `REPO_ONLY`** —— 那会把真令牌照 `token-shape` 判红，而
 `check-sensitive.mjs` 是**随包文件**，为它改扫描器就得重切 tarball、挪 tag。
 
-顺带钉住的两条实测事实：
+顺带钉住的一条实测事实：
 
 - `.gitignore` 不在 `files` 白名单里、也不在 npm 的强制打包清单里：加完这几行重打一次包，tarball 摘要
   与台账记的**逐字符相同**，`tar tzf` 里也搜不到这些名字 —— 所以改 `.gitignore` 不需要重切版本。
-- 多加了一条 `.dsh-ops-update-*.lock`：那是 harness 的 dsh-ops 在本目录留的更新锁，不是仓库的东西，
-  不钉住就会被 `git commit -a` 顺手带走（本机 `git check-ignore -v` 实测命中这条）。
 
 用之前要知道的两件事：Release 的标题与正文写在 `release.sh` 顶部两行（或用同名环境变量覆盖），**别写
 本机绝对路径或账号名** —— 台账与文档都在脱敏清单里，写了就红；附件名必须是 `<name>-<version>.tgz`，
