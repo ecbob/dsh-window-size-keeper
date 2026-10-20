@@ -17,3 +17,7 @@ npm-debug.log*
 # 也不随包（.gitignore 本来就不在 package.json 的 files 白名单里，所以这两条不改变 tarball 摘要）
 .github_tools/
 .github_token_temp/
+
+# 工具链在"正在写入的目录"里留的 0 字节发布锁（不是本仓库的东西：删掉后下次写会以同一哈希原样重建、
+# 不承载状态；不钉住就会被 git commit -a 顺手带走。注释刻意不点名是哪个工具 —— 要追看 git log 或本机插件清单。）
+.dsh-ops-update-*.lock
