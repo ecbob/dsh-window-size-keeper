@@ -33,9 +33,17 @@ Release ledger —— 本仓库打出的 tarball 与其 SHA-256
 
 ### 0.1.2 的发布链（2026-10-20，含一次我自己的流程滑点与纠正）
 
-- 提交 `66a0901c65a52df378763f8c000174afb959002b`（README 校准 + 升版本 + 双语 CHANGELOG + PUBLISHING
-  第六节第 4 条准则"令牌用完即删"），注解 tag `v0.1.2` 的 tag 对象
-  `41cde4ba613611ef64bbb65021947e1c7f322e11` 指向它；tagger 仍是 `ecbob <ecbob@users.noreply.github.com>`。
+- 提交为 `66a0901c65a52df378763f8c000174afb959002b`（内容：两份 README 校准、升版本、双语更新记录，
+  以及 PUBLISHING 第六节第 4 条准则"令牌用完即删"）；注解 tag `v0.1.2` 的 tag 对象
+  `41cde4ba613611ef64bbb65021947e1c7f322e11` 指向它，tagger 仍是 `ecbob <ecbob@users.noreply.github.com>`。
+- 口径注记（一次真实的误判，别只当成措辞问题）：这条原先写作"提交 `<40 位 hex>`（README …"，紧跟的
+  全角括号里那个拉丁词带大写，而 `[opaque-base64]` 的判据是 `(?=[^ ]*[A-Z])` —— 它**不约束被匹配的那段
+  字符**，只沿"到下一个空格为止"续看，于是大写字母从括号里被算进同一个词串，一颗**纯 hex 的提交号**就被
+  判成随机密钥（这条规则自己的 `why` 还写着"纯 hex 走 digest-hex 规则"）。CI 因此在 `444c94fe` 上红了一
+  次（desensitization 与两个 selftest job 都挂），而本地我当时只看了自检摘要、没看扫描输出，所以没当场
+  发现。源头修法是把混合大小写的前瞻收束到 token 自身，但 `scripts/check-sensitive.mjs` 是**随包文件**，
+  改它得升版本重切包 —— 本轮先把台账写法改对（把大写挪到 hex 之前），规则修正留给下一次发版，
+  顺带一条通用教训：**别只看自检绿了就当闸门过**，扫描那条步骤要单独看回执。
 - **滑点如实记**：第一次 `git commit --amend` 我漏了 `-a`，两份 CHANGELOG 的措辞修正（我把"随包差异
   文件数"写成三个，`diff` 实测是五个 —— CHANGELOG 也在 `files` 白名单里）留在工作树里没进 tag，于是
   tag 一度落在 `f4f64ad`（旧措辞）而包是从**改准后**的工作树打的，即 tag 树 ≠ 包。趁 Release 未建、
