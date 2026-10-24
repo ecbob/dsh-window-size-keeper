@@ -1,6 +1,7 @@
 # 发布现状与投稿清单
 
-**一句话：代码、自检与门禁都已就绪；没做的只有"在 GitHub 建仓 + push"和"往市场数据源仓库提投稿 PR"。**
+**一句话：代码、自检、门禁、发布链都已就绪；市场投稿 PR 已提（`awesome-dsh-plugin/awesome-dsh-plugin#9037`），
+现在等的只有对方 CI + 维护者评审。**
 
 ## 零、本机状态（重要）
 
@@ -129,7 +130,11 @@ dev_reload_package   dsh-window-size-keeper
 - [x] 建仓与 push：`main` = `5b33b7f`、注解 tag `v0.1.0` 已推（远程 refs 实测见 `RELEASES.txt`）
 - [x] GitHub Release `v0.1.0`（id 417597383）+ 附件 `dsh-window-size-keeper-0.1.0.tgz`（75,239 B；
       下载回来复算 SHA-256 与本地一致）；[x] 仓库已确认 Public（匿名 API 与 git-http refs 都是 200）
-- [ ] Actions 首跑结果（网页看）；提市场投稿 PR（还多一道"仓库满 1 天"的硬门槛）；用完撤销令牌
+- [x] CI：run 19 起五道 job 全绿（网页与 API 都核实过；两台 Windows runner 各 `99 项通过 / 0 失败`）
+- [x] 市场投稿 PR：`awesome-dsh-plugin/awesome-dsh-plugin#9037`（2026-10-24 开，只加一个条目文件、+6/-0）
+      —— 走法与踩到的三处坑见下面「六之二」
+- [x] 本地令牌文件用完即删（`.github_token_temp/` 已整个删掉，核实不存在）；
+      [ ] GitHub 那侧的 OAuth 授权仍未撤销（撤销不影响本仓库的 push，除非哪天 GCM 要重新登录）
 - [ ] 浏览器里的真机视觉确认：本机 Edge / Chrome 的 headless 被活动会话挡住（stdout 空、
       `--screenshot` 不落盘），所以第 [9] 组只能走假 DOM；要看真的得开桌面端
 
@@ -218,3 +223,41 @@ README 里"普通用户装产物"那条路认的就是这个名字。
   `content_type=application/gzip`、`size` 与本地包一致；从 `browser_download_url` 下载回来 86,164 B、
   SHA-256 与本地包一致；`/releases/latest` 已指向 `v0.1.1`；CI 五个 job 全绿（`selftest-windows (20)`、
   `selftest-windows (22)`、`syntax-linux`、`desensitization`、`manifest`）。
+
+## 六之二、往市场数据源仓库投稿这一步实际怎么走（2026-10-24，#9037）
+
+对方仓库 `awesome-dsh-plugin/awesome-dsh-plugin`（默认分支 `main`）。投稿就是**一个文件**：
+`data/plugins/ecbob__dsh-window-size-keeper.yml`（文件名 = `owner__repo.yml`，由 `slugFor(url)` 推出；
+名字里带 `window` 的既有条目一个都没有，重复已排除）。
+
+实走顺序（只用 API + git，不碰网页）：
+
+1. 先按对方 `contributing.md` 把**本仓库**的 `dsh-plugin` topic 加上。
+   ⚠️ **topic 只认 `PUT /repos/<owner>/<repo>/topics` + `{"names":[…]}`**：`PATCH /repos/<owner>/<repo>`
+   带 `topics` 字段回 200、响应里别的字段都对，topics 仍是空 —— 一次"看着成功其实没改"。
+2. `POST /repos/awesome-dsh-plugin/awesome-dsh-plugin/forks`，然后轮询到新 fork 的 `main` 与上游 `main`
+   同一个 commit（GitHub 复制要几秒）。**fork 必须从当前 main 开**：pr-check 有一道 stale-fork 门禁，
+   条目文件"删得比加得多"（>2）直接红。
+3. `git clone --depth 1 <fork>` → 新分支 → 条目文件放进 `data/plugins/` → **只 `git add` 这一个文件**
+   （提交身份 `ecbob <ecbob@users.noreply.github.com>`，别把个人邮箱写进公开历史）→ 推分支。
+4. `POST /repos/<上游>/pulls`，`head` 写成 `<我的用户名>:<分支>`。开完核对 `changed_files` / `additions` /
+   `deletions` 应当正是 1 / +6 / -0（本次 #9037 就是 1 / +6 / -0）。
+
+对方的自动门禁（`pr-check.yml` 里那几步，值得先看一眼再提）：条目必须是
+`data/plugins/<name>.yml` **恰好一层深** —— 深一层会被 `readEntries()` 静默漏掉，全绿却没收录（他们踩过两次，
+并在报错信息里写明了）；**不要手改两个生成的 README**（合并后在 `main` 上重新生成；只动 README 而不动条目
+文件的 PR 会被判红）；`js-yaml` 解析、`awesome-lint`、`build-site` 都要过。真正的仓库闸门（任意
+`package.json` 声明 `dsh.bundle`、仓库满 1 天、非归档非 fork、不是 DSH 本体）由 `workflow_run` 跑
+`check-submission.mjs`（要令牌，所以不在 fork-safe 的 `pull_request` 里），另有一道"一个 PR 最多 3 个条目"。
+**CI 绿是前提不是结论**：维护者会读一遍仓库再决定合不合。
+
+描述必须逐句能对着代码读 —— 对方原话是"夸大是让一个本来不错的插件被打回的主要原因"。本条目原先写的
+"零运行时依赖"与"常驻 PowerShell 代理"其实都不准确：兜底那条是**临时** `powershell.exe` 进程（每轮开、用完关），
+而"零依赖"容易被读成"不调用任何外部程序"（它确实调用系统自带的 `csc.exe`）。所以重写成了带实测数字、
+能逐句核对的版本（现编一次约 110ms、产物与同名 `.cs` 缓存到状态文件同目录、起进程约 90ms；`package.json`
+没有 `dependencies` 字段；不发任何外部网络请求）。
+
+⚠️ 自己踩的一条，值得记：`curl` 的 URL 必须是**绝对 URL**。这次把 `repos/<owner>/<repo>/...` 直接当 URL 传，
+curl 解析不出主机名，`-s` 又把报错吞了，结果一整批调用"全都成功、全都回空对象"，看着像鉴权坏了 ——
+同一会话里加一条 `GET /user` 就能把"令牌不行"与"URL 不行"一眼分开。另：PowerShell 5.1 下把 curl 的输出喂给
+`ConvertFrom-Json` 之前先 `| Out-String` 收成单串更稳。

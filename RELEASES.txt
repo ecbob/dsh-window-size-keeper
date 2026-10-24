@@ -184,8 +184,12 @@ Release ledger —— 本仓库打出的 tarball 与其 SHA-256
 - 上面那两条都已办完，凭据见上一节「0.1.3 的发布链」：重启实测走的就是助手（`win32Backend: "helper"`、
   `win32HelperFallback: false`，外框实测正好 2200×1200），tag `v0.1.3` 已推，Release 附件已从 API 资产端点
   拉回复算、与本地那颗逐字符一致。
-- 真还剩的只有市场投稿：`submission/data/plugins/…yml` 那条措辞已按 0.1.3 改过（"在自己机器上现编的助手
-  exe + 常驻 PowerShell 兜底"），但**投稿仓库那边的 PR 没提** —— 那不归本台账管。
+- 市场投稿已提：`awesome-dsh-plugin/awesome-dsh-plugin#9037`（2026-10-24，只加
+  `data/plugins/ecbob__dsh-window-size-keeper.yml` 一个文件，+6/-0，fork 从当时上游 main 直接开）。
+  开之前按对方要求把本仓库的 `dsh-plugin` topic 补上了（`PUT /repos/<owner>/<repo>/topics`，`PATCH` 仓库对象
+  不管这个字段），并把条目描述重写成逐句能对着代码核对的版本（去掉"零运行时依赖""常驻 PowerShell 代理"这类
+  不准确说法）。等的是对方 CI（`pr-check` + `workflow_run` 那道仓库闸门）与维护者评审 —— 走法与踩的坑见
+  `PUBLISHING.md` 的「六之二」。
 - 观察项（不用做什么）：助手 exe 已缓存在状态文件同目录，下次重启不再现编，动手时刻应当贴着 `apply`
   （本机这一代 `apply` 在 +1.81s）；哪天杀软把新写的 exe 拦死，`win32HelperFallback` 会转 `true`、自动退回
   powershell，功能不丢，只是慢回那一档 +1.2s。
