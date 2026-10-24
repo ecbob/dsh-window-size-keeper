@@ -107,11 +107,14 @@ dev_reload_package   dsh-window-size-keeper
 ## 四、发布前自检清单
 
 - [x] `npm run check` — `lib/index.js` / `lib/client.js` / `scripts/selftest.mjs` 语法过
-- [x] `node scripts/selftest.mjs` — **81 项**离线自检全绿：第 [7] 组真 powershell 代理协议、
+- [x] `node scripts/selftest.mjs` — **99 项**离线自检全绿：第 [7] 组真 powershell 代理协议、
+      第 [7b] 组本机现编的 Win32 助手（选路纯函数 + 真编真跑的握手/`--get`/`--set`/常驻协议 +
+      "助手起不来必须退回 powershell"）、
       第 [8] 组文案 i18n（中英词典各 60 条 key 对齐、`{占位符}` 一致、英文表无中日韩残留、
       语言判定优先级全分支、两份 README 章节结构一一对应）、
       第 [9] 组假 DOM 真渲染（英文一遍、中文一遍、无语言服务两遍、词典注册失败也不甩 key、切语言不重建 DOM）
-- [x] `npm pack --pack-destination dist` → 11 个文件、75,239 B、
+- [x] `npm pack --pack-destination dist` → 11 个文件（下面这组数字是 0.1.1 那次的记录，每版的数字看
+      `RELEASES.txt`）：75,239 B、
       SHA-256 `e6ca432cec5ddd98273f3a7a2e07e78527423e9534de826632a2c34838bf09de`；
       产物逐文件摘要 == 工作副本摘要（11/11），逐条记在 `RELEASES.txt`
 - [x] 开发目录与本归档目录的 11 个共有文件逐字节相同（这几轮都是「两边都改」）

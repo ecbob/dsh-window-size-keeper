@@ -10,6 +10,9 @@
 //      POST /select、POST /apply、POST /reset、未知路由；
 //   2b. Win32 代理协议（仅 Windows）：真起一个 powershell.exe 走 ENUM / WA / SET / 连续指令 /
 //      close 后请求 —— ENUM 与 WA 只读，SET 打在一个不存在的句柄上，不 resize 任何真实窗口；
+//   2c. Win32 助手 exe（首选那条路）：选路的纯函数（编译器探测、缓存名、后端口径）＋
+//      真机现编（产物只落在自检的 tmp 目录，旁边留 .cs 源码）、握手 / `--get` / `--set` 三条
+//      一次性契约、常驻代理，以及"助手起不来必须退回 powershell、绝不整个放弃"的回退顺序；
 //   3. 文案 i18n（假 __ModuleLoader__ 捕获客户端半个插件，只取它的纯 i18n 内核）：
 //      中英词典逐 key 对齐、{占位符} 一致、英文表里不许残留中文；语言判定优先级
 //      （配置写死 > DSH 当前语言 > 框架探针 > 浏览器判定）与"只有简体中文走中文、繁体一律英文"；
@@ -484,6 +487,109 @@ async function main() {
 			assert.equal(after.ok, false);
 			assert.ok(Date.now() - started < 2000, `close 后请求等了 ${Date.now() - started}ms`);
 		});
+	}
+
+	// [7b] Win32 助手（本机现场编译的小 exe）：纯函数层钉"怎么选路"，真机层钉协议与回退顺序。
+	// 编译产物只落在自检自己的 tmp 目录，**不碰** ~/.dsh/storages；SET 一律打在不存在的句柄上。
+	console.log("[7b] Win32 助手 exe（选路纯函数 / 现编 / 契约 / 回退顺序）");
+	const helperSource = internals.buildAgentCSharp("Chrome_WidgetWin_1");
+	check("助手源码把主窗口类名内联进去，不留占位符", () => {
+		assert.ok(helperSource.includes('mainClass = "Chrome_WidgetWin_1"'), "类名没内联进源码");
+		assert.ok(!helperSource.includes("__WSK_MAIN_CLASS__"), "占位符没替换干净");
+	});
+	check("助手 exe 的缓存名带源码摘要：同一份源码稳定，改一个字就换名（旧缓存自动作废）", () => {
+		const a = internals.helperExeName(helperSource);
+		assert.equal(a, internals.helperExeName(helperSource));
+		assert.match(a, /^wsk-agent-[0-9a-f]{16}\.exe$/u);
+		assert.notEqual(a, internals.helperExeName(`${helperSource} `));
+	});
+	check("助手 exe 与它的 .cs 源码落在状态文件同目录", () => {
+		const p = internals.resolveHelperPaths({ stateFile: path.join(tmp, "state.json") }, path.join(tmp, "state.json"));
+		assert.equal(path.dirname(p.exe), tmp);
+		assert.equal(path.dirname(p.cs), tmp);
+		assert.equal(p.cs, `${p.exe.slice(0, -".exe".length)}.cs`);
+	});
+	check("win32Backend 只认 auto / powershell / helper，写错一律 auto", () => {
+		assert.equal(internals.normalizeWin32Backend(undefined), "auto");
+		assert.equal(internals.normalizeWin32Backend("  PowerShell "), "powershell");
+		assert.equal(internals.normalizeWin32Backend("HELPER"), "helper");
+		assert.equal(internals.normalizeWin32Backend("随手写的值"), "auto");
+	});
+	check("findCsc 只认系统自带的编译器（64 位优先），探不到或探测炸了都返回 null", () => {
+		const root = "FAKE_ROOT_FOR_SELFTEST";
+		const p64 = path.join(root, "Microsoft.NET", "Framework64", "v4.0.30319", "csc.exe");
+		const p32 = path.join(root, "Microsoft.NET", "Framework", "v4.0.30319", "csc.exe");
+		assert.equal(internals.findCsc({ SystemRoot: root }, (p) => p === p64 || p === p32), p64, "没优先挑 64 位编译器");
+		assert.equal(internals.findCsc({ windir: root }, (p) => p === p32), p32, "只有 32 位时没退到它");
+		assert.equal(internals.findCsc({ SystemRoot: root }, () => false), null, "哪儿都没有编译器却没返回 null");
+		assert.equal(internals.findCsc({}, () => true), null, "没有系统目录却返回了编译器");
+		assert.equal(internals.findCsc({ SystemRoot: root }, () => { throw new Error("探测炸了"); }), null, "探测抛异常没兜住");
+	});
+
+	if (process.platform === "win32") {
+		const csc = internals.findCsc(process.env, (p) => {
+			try { return fs.existsSync(p); } catch { return false; }
+		});
+		if (!csc) {
+			console.log("  skip 本机找不到系统自带的 csc.exe —— 助手的真机断言跳过（运行时会自动退回 powershell）");
+		} else {
+			const helperDir = path.join(tmp, "helper");
+			const paths = { dir: helperDir, exe: path.join(helperDir, internals.helperExeName(helperSource)), cs: "" };
+			paths.cs = `${paths.exe.slice(0, -".exe".length)}.cs`;
+			let helperExe = null;
+
+			await run("现编助手：产物落在 tmp，旁边留同一份 .cs 源码供人核对，临时名清干净", async () => {
+				helperExe = await internals.compileHelperExe({ csc, source: helperSource, csPath: paths.cs, exePath: paths.exe });
+				assert.ok(helperExe, "编译没出产物");
+				assert.ok(fs.statSync(helperExe).size > 1024, "产物小得不像个 exe");
+				assert.ok(fs.readFileSync(paths.cs, "utf8").includes("SetWindowPos"), "旁边的 .cs 源码不见了");
+				assert.ok(!fs.existsSync(`${paths.exe}.tmp-${process.pid}`), "临时名没清干净");
+			});
+
+			await run("握手：--protocol 答 wsk-agent-1（证明这 exe 真能起来、真能答）", async () => {
+				const got = await internals.runHelper(helperExe ?? "", ["--protocol"]);
+				assert.equal(got.ok, true, String(got.error ?? ""));
+				assert.equal(got.out, "wsk-agent-1");
+			});
+
+			await run("--get 与 buildGetScript 同契约：Windows 是数组 + WorkArea 四个数 + 认窗要的字段齐全", async () => {
+				const got = await internals.runHelper(helperExe ?? "", ["--get"]);
+				assert.equal(got.ok, true, String(got.error ?? ""));
+				const data = JSON.parse(got.out);
+				assert.ok(Array.isArray(data.Windows), "Windows 不是数组");
+				assert.ok(data.Windows.length > 0, "一个可见窗口都没枚举到（这台机器上不该这样）");
+				for (const k of ["L", "T", "R", "B"]) assert.ok(Number.isFinite(Number(data.WorkArea?.[k])), `WorkArea.${k} 不是数`);
+				const w = data.Windows[0];
+				for (const k of ["H", "Pid", "Class", "Title", "L", "T", "R", "B"]) assert.ok(k in w, `窗口条目缺字段 ${k}`);
+				assert.equal(internals.pickMainWindow(data.Windows, -1), null, "pid 不匹配时竟认出了窗口");
+			});
+
+			await run("--set 假句柄：如实 FAIL，且退出码 0（不许用非零退出码把调用方踢回兜底白跑一趟）", async () => {
+				const got = await internals.runHelper(helperExe ?? "", ["--set", "1", "0", "0", "100", "100", "20"]);
+				assert.equal(got.ok, true, `助手用非零退出码回报失败：${String(got.error ?? "")}`);
+				assert.equal(got.out, "FAIL");
+			});
+
+			await run("openWinAgent(助手) → backend=helper，探针那次枚举直接当盯窗第一轮带回", async () => {
+				const opened = await internals.openWinAgent(helperExe);
+				assert.ok(opened, "助手代理起不来");
+				assert.equal(opened.backend, "helper");
+				assert.ok(Array.isArray(opened.windows) && opened.windows.length > 0, "探针没带回窗口数组");
+				const wa = await opened.agent.workArea();
+				assert.equal(wa.ok, true);
+				assert.equal(wa.cmd, "WA");
+				const set = await opened.agent.setWindowPos(1, 0, 0, 100, 100, 0x0014);
+				assert.equal(set.ok, false, "假句柄 SET 竟报成功");
+				opened.agent.close();
+			});
+
+			await run("助手 exe 不存在 → openWinAgent 退回 powershell，绝不整个放弃", async () => {
+				const opened = await internals.openWinAgent(path.join(helperDir, "wsk-agent-does-not-exist.exe"));
+				assert.ok(opened, "两条路都没起来（powershell 兜底也该起）");
+				assert.equal(opened.backend, "powershell");
+				opened.agent.close();
+			});
+		}
 	}
 
 	// [8] 文案 i18n：词典对齐、语言判定优先级、原因码渲染。客户端半个插件是浏览器模块，

@@ -12,6 +12,52 @@ Release ledger (tarball names + SHA-256): `RELEASES.txt` (publish archive direct
 > tarball is packed, and no released tarball is ever deleted. The English and Chinese
 > versions of this file are updated together.**
 
+## [0.1.3] - 2026-10-24
+
+The symptom this version chases: DSH opened at the built-in 1280×820 and only *then* jumped to the size
+you had configured. Early restore (`restoreEarly`, on since 0.1.0) did run - it just lost the race with
+the app's `show()` by about a second, and the cost that made it lose was the Win32 transport.
+
+### Added
+
+- **A Win32 helper compiled on the user's own machine.** Its C# source lives in `lib/index.js`
+  (`buildAgentCSharp()`); the first time the plugin needs Win32 it is compiled with the **in-box**
+  `csc.exe` (~110 ms measured) into
+  `~/.dsh/storages/window-size-keeper/wsk-agent-<16 hex of source>.exe`, with the identical `.cs` written
+  next to it so anyone can read what is running. Before it is trusted, it answers a `--protocol`
+  handshake — antivirus blocking a freshly written exe fails there and costs nothing. Starting that exe
+  measures **~90 ms** against **~1.5 s** for the powershell agent on the same machine; once resident, one
+  enumeration costs a few milliseconds. The digest in the file name means changing the source retires the
+  old cache by itself - no version bookkeeping, no cleaning, and no two plugin versions overwriting each
+  other. The package still ships **no binary** and uses no third-party toolchain.
+- **Config key `win32Backend`**: `auto` (default) tries the helper and falls back to powershell;
+  `powershell` never compiles anything and writes no exe; `helper` uses only the helper (troubleshooting).
+- One-shot `--get` / `--set` modes on the helper mirror `buildGetScript()` / `buildSetScript()` byte for
+  byte in contract (visible windows + work area; `OK` / `FAIL` on stdout, exit code 0 even when
+  `SetWindowPos` says no), so the sampling cycle and the settings page's "apply now" get the same
+  speed-up. A failed helper call is sticky within one generation: the rest of that generation goes
+  straight to powershell instead of hitting the same wall per sample.
+- `GET /state` reports `win32Backend`, `win32HelperExe` and `win32HelperFallback` - "did it compile, and
+  which layer is in use right now" is answerable from the host API rather than by guessing.
+- Selftest group `[7b]`: the path-picking pure functions (compiler probe order, throwing probes, cache
+  naming, backend normalisation), plus on Windows a real compile into the selftest's own temporary
+  directory and the protocol driven against the real exe - including "a helper that cannot start must
+  fall back to powershell, never give up". Offline checks: **88 → 99**.
+
+### Fixed
+
+- On machines where the helper compiles, the resize now lands around **+1.9 s** after the app starts,
+  i.e. *before* the window is shown, instead of after it. Measured here on 2026-10-24 (2560×1392 work
+  area, target 2200×1200): Electron main process → main window already created and hidden at +0.26 s →
+  host process at +0.57 s → plugin `apply` at +1.66 s → powershell agent's first enumeration 1.24-1.32 s
+  after that → resize completed at **+3.15 s**, just behind `show()`. With the helper the agent is up and
+  has enumerated in **0.098 s**, and `--get` / `--set` one-shots take 0.083-0.084 s.
+- The resident agent now also listens for `error` on its own stdin/stdout pipes. An antivirus killing the
+  child mid-flight could previously surface an unhandled stream error inside the host process.
+- Documentation and code comments that estimated the powershell transport at 730 ms per call were wrong:
+  measured on the same hardware it is ~0.8 s just to start `powershell.exe` plus ~0.45 s for the
+  `Add-Type` compile.
+
 ## [0.1.2] - 2026-10-20
 
 Docs only - no plugin code changed. Verified rather than asserted: the 0.1.2 tarball differs from 0.1.1

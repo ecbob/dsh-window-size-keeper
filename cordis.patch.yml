@@ -34,6 +34,12 @@
         # 写成 false 则只记状态文件，设置页的选择完全由你自己定。
         followManualResize: true
         restoreDelayMs: 3000
+        # Win32 走哪条路：默认 "auto" = 先用**系统自带**的 csc.exe 现编一个只干 Win32 的小助手 exe
+        # （起进程约 90ms；产物与同一份 .cs 源码都落在 ~/.dsh/storages/window-size-keeper/ 里，
+        # 文件名带源码摘要 —— 源码一改旧缓存自动作废，不需要谁去清）。编不出来、exe 起不来、
+        # 或者答不上来（杀软拦下刚写的 exe），整套退回原来的 powershell.exe 路径（约 1.3s）。
+        # 一点不想在本机落 exe 就写 "powershell"；只想用助手、起不来就当没有提前恢复，写 "helper"。
+        win32Backend: "auto"
         centerOnRestore: true
         # 空串 = 用"上次尺寸"；填某个 id（如 "1920x1080"）= 恢复时用该分辨率。
         # 注意：设置页的选择（settings.json）会覆盖这一项。
