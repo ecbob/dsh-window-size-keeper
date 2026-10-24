@@ -197,6 +197,10 @@ Release ledger —— 本仓库打出的 tarball 与其 SHA-256
   `b4d0049a8`，相对 main 只有那一个文件）→ 用 `--force-with-lease=<分支>:<坏掉的 sha>` 覆盖自己那条分支 →
   在原 PR 留言说明原因 → 开 **#9047**（正文写 `#9037` 会自动生成交叉引用）。教训：浅克隆里别 amend；想重跑
   对方 CI 等他们的 `regate.yml`（cron `19 */6 * * *`，UTC）就行，不必自己动手。
+- **#9047 两道闸门都已绿**（12:11 复查）：`check` = success；`Submission gate` 的 `output.title` 是
+  **"Entries look good"**，摘要 `All 1 submitted entry passes: dsh.bundle declared, repo old enough,
+  enough commits.` —— 这一次它真的评估了我们的条目。`mergeable_state=clean`、`changed_files=1`、+6/−0、
+  1 个提交、无人工评论。剩下的只是对方维护者读一遍仓库再决定合不合（他们写明白：CI 绿是前提不是结论）。
 - 那次 `Submission gate` 的红也要读对：它的 `output.title` 是 **"The gate could not run"**，摘要写的是对方这个
   GitHub App installation 撞了 `API rate limit exceeded` —— **不是对条目的判定**（`PR check` 那十几步在旧 head
   `d17290bd` 上已经全绿，含 awesome-lint 与 build-site）。
