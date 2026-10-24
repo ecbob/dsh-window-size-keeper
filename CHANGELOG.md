@@ -45,11 +45,19 @@ the app's `show()` by about a second, and the cost that made it lose was the Win
   fall back to powershell, never give up". Offline checks: **88 → 99**.
 - **The selftest now guarantees it terminates**: an 8-minute watchdog (prints red and says "the last group
   header in the log is the group that hung" - group headers print before their group runs), a
-  `process.exit` at the end, and `closeAllConnections()` on the test http server before `close()`. The reason
-  is empirical: after 0.1.3 was pushed, the Windows `selftest` step sat at **11 minutes without finishing**,
-  and an unfinished job gives **no logs** on GitHub (the logs endpoint answers `BlobNotFound`) - a hang there
-  is literally un-debuggable. Both Win32 groups now print their elapsed time into the log: measured here
-  2026-10-24, group `[7]` 9.2 s, group `[7b]` 2.9 s, whole run 10.6 s.
+  `process.exit` at the end, `closeAllConnections()` on the test http server before `close()`, and the temp
+  directory cleanup now retries and records a failure instead of throwing. The trigger and the **found**
+  cause: after 0.1.3 was pushed, the selftest step on both Windows runners sat at **11 minutes without
+  finishing**, and an unfinished job gives **no logs** (the logs endpoint answers `BlobNotFound`) - a hang
+  there is literally un-debuggable. Once the step terminated, the log showed two real defects: (1) one `[7b]`
+  assertion can only fail on a runner - CI's session 0 has no window of class `Chrome_WidgetWin_1`, the probe
+  enumeration answers an **empty array**, and because the assertion threw, `agent.close()` was skipped,
+  leaving a resident helper process on the event loop so node never exited (that is where the 11 minutes
+  came from); (2) the final `fs.rmSync` then hit `EPERM: unlink` - Windows cannot delete a running exe - and
+  the throw buried the conclusion that had already printed. Assertions now treat "empty array" as a valid
+  answer (fields are only required for entries that exist) and both `openWinAgent` checks close their agent
+  in a `finally`. Both Win32 groups also print elapsed time: measured here 2026-10-24, `[7]` 9.2-10.6 s,
+  `[7b]` 2.9-4.4 s, whole run 10.6-12.5 s; on the runner they were 5.8 s and 0.64 s.
 
 ### Fixed
 

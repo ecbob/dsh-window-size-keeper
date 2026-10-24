@@ -575,10 +575,11 @@ async function main() {
 				assert.equal(got.ok, true, String(got.error ?? ""));
 				const data = JSON.parse(got.out);
 				assert.ok(Array.isArray(data.Windows), "Windows 不是数组");
-				assert.ok(data.Windows.length > 0, "一个可见窗口都没枚举到（这台机器上不该这样）");
 				for (const k of ["L", "T", "R", "B"]) assert.ok(Number.isFinite(Number(data.WorkArea?.[k])), `WorkArea.${k} 不是数`);
-				const w = data.Windows[0];
-				for (const k of ["H", "Pid", "Class", "Title", "L", "T", "R", "B"]) assert.ok(k in w, `窗口条目缺字段 ${k}`);
+				// 空数组是**合法**答复（没有可见窗口的会话，比如 CI 的 session 0）；有条目时字段必须齐。
+				for (const w of data.Windows.slice(0, 3)) {
+					for (const k of ["H", "Pid", "Class", "Title", "L", "T", "R", "B"]) assert.ok(k in w, `窗口条目缺字段 ${k}`);
+				}
 				assert.equal(internals.pickMainWindow(data.Windows, -1), null, "pid 不匹配时竟认出了窗口");
 			});
 
@@ -588,24 +589,37 @@ async function main() {
 				assert.equal(got.out, "FAIL");
 			});
 
+			// 这两条**必须**把代理关掉，而且要在 finally 里关：断言一抛就跳过 close 的话，
+			// 常驻子进程会一直挂在事件循环上——CI 上表现为"99 项打完了但这一步永不结束"，
+			// 最后还会把临时目录里那个 exe 锁住（Windows 删不掉正在运行的 exe，EPERM）。
 			await run("openWinAgent(助手) → backend=helper，探针那次枚举直接当盯窗第一轮带回", async () => {
 				const opened = await internals.openWinAgent(helperExe);
 				assert.ok(opened, "助手代理起不来");
-				assert.equal(opened.backend, "helper");
-				assert.ok(Array.isArray(opened.windows) && opened.windows.length > 0, "探针没带回窗口数组");
-				const wa = await opened.agent.workArea();
-				assert.equal(wa.ok, true);
-				assert.equal(wa.cmd, "WA");
-				const set = await opened.agent.setWindowPos(1, 0, 0, 100, 100, 0x0014);
-				assert.equal(set.ok, false, "假句柄 SET 竟报成功");
-				opened.agent.close();
+				try {
+					assert.equal(opened.backend, "helper");
+					// 枚举到**几个**窗口取决于这台机器上有没有那个窗口类：本机有 DSH 主窗口，
+					// CI 的 session 0 一个都没有。空数组是合法答复，盯的是"带回来的是数组、
+					// 且按面积认窗的口径在这种情形下认不出窗"。
+					assert.ok(Array.isArray(opened.windows), `探针没带回窗口数组：${JSON.stringify(opened.windows).slice(0, 80)}`);
+					assert.equal(internals.pickEarlyMainWindow(opened.windows, -1), null, "没有可比的窗口时竟认出了主窗");
+					const wa = await opened.agent.workArea();
+					assert.equal(wa.ok, true);
+					assert.equal(wa.cmd, "WA");
+					const set = await opened.agent.setWindowPos(1, 0, 0, 100, 100, 0x0014);
+					assert.equal(set.ok, false, "假句柄 SET 竟报成功");
+				} finally {
+					opened.agent.close();
+				}
 			});
 
 			await run("助手 exe 不存在 → openWinAgent 退回 powershell，绝不整个放弃", async () => {
 				const opened = await internals.openWinAgent(path.join(helperDir, "wsk-agent-does-not-exist.exe"));
 				assert.ok(opened, "两条路都没起来（powershell 兜底也该起）");
-				assert.equal(opened.backend, "powershell");
-				opened.agent.close();
+				try {
+					assert.equal(opened.backend, "powershell");
+				} finally {
+					opened.agent.close();
+				}
 			});
 		}
 	}
@@ -1127,12 +1141,23 @@ async function main() {
 	// 一条没读完的 keep-alive 就够它永远不 resolve（表现为"打完了但这一步永不结束"）。
 	if (typeof server.closeAllConnections === "function") server.closeAllConnections();
 	server.close();
+
+	// 收尾清临时目录：里面可能还有正在退出的 Win32 子进程占着那个 exe（Windows 删不掉正在
+	// 运行的映像），所以带重试。仍删不净就说明**有子进程没被关掉** —— 记成一条失败项，而不是
+	// 让异常飞出去：飞出去会把已经打好的结论盖掉，CI 上只剩一句 EPERM 什么也看不见
+	// （2026-10-24 在 GitHub 的 Windows runner 上就是这么红的）。
+	try {
+		fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
+	} catch (err) {
+		const message = String(err?.message ?? err);
+		failures.push({ label: "临时目录没删净（说明有 Win32 子进程没退出）", message });
+		console.log(`  FAIL 临时目录没删净（说明有 Win32 子进程没退出）\n       ${message.split("\n")[0]}`);
+	}
+
 	console.log(`\n合计 ${passed} 项通过，失败 ${failures.length} 项`);
 	if (failures.length > 0) {
 		for (const f of failures) console.log(`FAIL: ${f.label} — ${f.message}`);
-		process.exitCode = 1;
 	}
-	fs.rmSync(tmp, { recursive: true, force: true });
 	clearTimeout(watchdog);
 	// 明确退出：结论已经打印完了，不再等事件循环排干——只要还有一个子进程的管道没关净，
 	// node 就会一直挂着（CI 里表现成"99 项全绿但这一步永不结束"）。
