@@ -11,7 +11,10 @@ permissions:
 
 jobs:
   # 离线自检里有第 [7] 组：起真 powershell.exe、用一个不存在的句柄跑一遍代理协议，
-  # 专门验"失败如实回报、不谎报已改窗口"。这组要有系统 powershell，所以放 Windows runner。
+  # 专门验"失败如实回报、不谎报已改窗口"；第 [7b] 组还要用系统自带的 csc.exe 真编一次 Win32
+  # 助手并对真 exe 跑协议。这两组都要 Windows，所以放 Windows runner。
+  # 步骤名里**不写项数**：项数由脚本自己在结尾自报（`合计 N 项通过，失败 0 项`），
+  # 写在 yaml 里必然过期 —— 0.1.2 之前就留着过 "81 cases" 这种旧数字。
   selftest-windows:
     strategy:
       fail-fast: false
@@ -30,7 +33,7 @@ jobs:
       - name: Syntax checks
         run: npm run check
 
-      - name: Offline selftest (81 cases)
+      - name: Offline selftest (项数由脚本自报)
         run: node scripts/selftest.mjs
 
   # 非 Windows 上本插件是"能看见状态、不动窗口"（payload 里 supported:false）。
