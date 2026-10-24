@@ -6,10 +6,10 @@ Release ledger —— 本仓库打出的 tarball 与其 SHA-256
 
 | 状态 | tarball | 字节 | SHA-256（本机打出） | 日期 |
 | --- | --- | --- | --- | --- |
-| **现行（本机 desktop profile 已装这颗；main 见下。tag 与 Release 附件**尚未做**，等重启验证过"打开就是设置的尺寸"再发）** | `dist/dsh-window-size-keeper-0.1.3.tgz` | 106,012 | `f4db8bba6bd536f0e11096d4f58e75e06378c950c2c819db706d7f7a4d578e4e` | 2026-10-24 |
+| **现行（已推送 main + tag `v0.1.3`，Release 已建、附件已复算；本机 desktop profile 已装并重启实测过）** | `dist/dsh-window-size-keeper-0.1.3.tgz` | 106,012 | `f4db8bba6bd536f0e11096d4f58e75e06378c950c2c819db706d7f7a4d578e4e` | 2026-10-24 |
 
-> 0.1.3 在同一天**重打过三次**（同一版本号：这四颗都从未发布、也没打 tag，所以重打不违反"已发布的
-> tarball 永不删除"）：
+> 0.1.3 在同一天**重打过三次**（同一版本号：①②③ 当时都从未发布、也没有 tag，所以重打不违反"已发布的
+> tarball 永不删除"；四颗里只有 ④ 真正发布过）：
 > ① 102,364 B、`01d8482defb228c951ab1b8f83abdeee1fc80d2fff813d2d99b428c2e36a4984` —— 助手层 +
 >    `[7b]` 组那版，只在本机装过一轮；
 > ② 104,507 B、`8c03005f4deb11f10583a6730de37d5e0195331ec1d054eb9ee0d99bb46546f2` —— 助手超时 4s→8s
@@ -131,6 +131,46 @@ Release ledger —— 本仓库打出的 tarball 与其 SHA-256
 **助手这条路在 GitHub 的 Windows runner 上是真跑得通的**：`csc.exe` 现编、`--protocol` 握手、`--get`、
 `--set`（假句柄如实回 `FAIL` 且退出码 0）四条全绿。
 
+### 0.1.3 的发布链（先实测，再 tag，再 Release）
+
+**重启桌面端之后取的数据**（`state.json.gen` = 5 那一代，主进程 11:09:48.386 起）：
+
+| 相对主进程 | 事件 |
+| --- | --- |
+| +0.22s | 渲染进程起 |
+| +0.58s | 宿主进程起 |
+| +1.81s | 插件 `apply`（`state.json.gen` 写 5） |
+| +2.44s | 第一次采样落盘：`state.json` 记下 2200×1200 @ (180,96) |
+
+助手 exe 与同名 `.cs` 在**上一代**就已现编落盘（11:09:39.163），所以这一代直接命中缓存：手工复跑
+`--protocol` **91ms**、`--get` **133ms**（枚举到 32 个可见窗口）。`GET /state` 回报
+`win32Backend: "helper"`、`win32HelperFallback: false`、`earlyActive: false`；当场读到的窗口外框
+`180,96 → 2380,1296` 正是 2200×1200 —— 按用户口径就是"打开就是这个尺寸"，那一跳没了。
+本机编出来的助手：`wsk-agent-e39174a19d671d27.exe`，8,704 B、SHA-256 前 16 位 `602c1a2ddd9efe50`
+（缓存名只钉**源码**摘要，不钉产物摘要：换机器或换 csc 版本产物就会变，这正是要用源码摘要命名的原因）。
+
+- tag：注解 tag `v0.1.3` —— tag 对象 `632c205a452101922ffadc3d74dde0b4e50c4399`，指向 commit
+  `d3a07f0bb0f75e11778a20dfc834b9cf71a7d112`；`git push origin v0.1.3` 已推，`ls-remote` 核实过两条都在线上。
+- Release：id `422484507`，标题 `v0.1.3 — 打开就是设置的尺寸：Win32 改用本机现编的助手 exe`，正文中英各
+  一段 + 安装两步（照 0.1.1 / 0.1.2 的口径），非 draft、非 prerelease。
+- 附件：id `671124924`，名字保持 `dsh-window-size-keeper-0.1.3.tgz`，`content_type` 是
+  `application/gzip`（第六节那条"附件的 content_type 事后改不了"的坑照旧避开了：上传时只发这一个头），
+  106,012 B。Release 上**只有一个附件**，没有重复件。
+- **下载侧复算**：走 API 资产端点（`Accept: application/octet-stream`）把附件拉回来 —— 106,012 B、
+  SHA-256 `f4db8bba6bd536f0e11096d4f58e75e06378c950c2c819db706d7f7a4d578e4e`，与本地那颗**逐字符相同**；
+  再解一层包，11 个文件与工作副本 **11/11 相同**。GitHub 这一侧依旧不回报附件的 `digests`（与第六节记的
+  一致），所以真正算得出的一道就是"下载回来复算"。
+- 新踩出来的一条本机口径：**别拿浏览器直链 `github.com/<owner>/<repo>/releases/download/...` 当"附件在不在"
+  的判据** —— 本机这条出口对 `github.com` 的 HTML / 下载路由不可达：连 0.1.2 那条早已验证过的老链接也只回
+  9 字节的 `Not Found`（release 页面本身同样只回 9 字节），而 `api.github.com` 全程正常。要验附件就验
+  API 资产端点；换台网络出口再试直链即可，别据此判断附件没挂上。
+- 令牌生命周期照第六节：值全程不打印（过程里只报形态：一枚 40 位的一次性令牌）；只落
+  `.github_token_temp/` 里两份文件（`token.txt` 与 `curlrc`），`icacls` 收成只授当前用户；调 API 一律
+  `curl -K <那份配置>`，不用 `-H "Authorization: …"` 把令牌塞进进程命令行；上传 + 复算完**整个目录当场删**
+  （已核实不存在）。第一次上传失败是我把 URL 拼错了（把整条 `https://api.github.com/...` 接到
+  `https://uploads.github.com` 后面 → 空响应），改成 `https://uploads.github.com/repos/<owner>/<repo>/...`
+  后一次成功 —— 记下免得下次照抄错的那条。
+
 ### 0.1.3 还剩什么
 
 - CI 侧（同一版重打期间）：run 16（`a012c28`）与 run 17（`1bb1828`）两台 Windows runner 的 selftest 步骤
@@ -141,10 +181,14 @@ Release ledger —— 本仓库打出的 tarball 与其 SHA-256
   顺带从 runner 日志里拿到一组跨机器对照：**powershell 代理组 5,913 / 6,061ms，助手 exe 组（含现编）
   756 / 795ms** —— 现编带跑协议全套仍比 powershell 那条快 8 倍，本机同一组是 10.3s / 4.1s。
   两台 runner 的 job 本体只用了 28~30 秒（含 checkout 与 setup-node）。
-- 重启桌面端后实测"打开就是 2200×1200"，并看 `GET /state` 的 `win32Backend` 是不是 `helper`、
-  `~/.dsh/storages/window-size-keeper/` 里是否多出 `wsk-agent-*.exe` 与 `.cs`。
-- 上面过了再：注解 tag `v0.1.3` → GitHub Release 附件（保持原文件名）→ 下载侧复算 SHA-256 → 回填本节
-  状态列。老规矩：已发布的 tarball 永不删。
+- 上面那两条都已办完，凭据见上一节「0.1.3 的发布链」：重启实测走的就是助手（`win32Backend: "helper"`、
+  `win32HelperFallback: false`，外框实测正好 2200×1200），tag `v0.1.3` 已推，Release 附件已从 API 资产端点
+  拉回复算、与本地那颗逐字符一致。
+- 真还剩的只有市场投稿：`submission/data/plugins/…yml` 那条措辞已按 0.1.3 改过（"在自己机器上现编的助手
+  exe + 常驻 PowerShell 兜底"），但**投稿仓库那边的 PR 没提** —— 那不归本台账管。
+- 观察项（不用做什么）：助手 exe 已缓存在状态文件同目录，下次重启不再现编，动手时刻应当贴着 `apply`
+  （本机这一代 `apply` 在 +1.81s）；哪天杀软把新写的 exe 拦死，`win32HelperFallback` 会转 `true`、自动退回
+  powershell，功能不丢，只是慢回那一档 +1.2s。
 
 ## 0.1.2
 

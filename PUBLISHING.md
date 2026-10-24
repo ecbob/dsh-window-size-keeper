@@ -203,6 +203,17 @@ README 里"普通用户装产物"那条路认的就是这个名字。
   SHA-256**，与本地包逐字符相同才允许说"挂上去的就是本地那个包"。
 - **别用 `bash -x` 跑这两个脚本**：`-x` 会把 `TOKEN=` 与那几条 `printf` 的实参原样写进 trace，令牌本体
   就在里面。要调试就把 trace 落在被忽略的 work 目录里并当场删掉（本次就是这么做的）。
+- **附件存在性要用 API 资产端点验，别只认浏览器直链**（2026-10-24 建 `v0.1.3` 时撞的）：本机那次
+  `https://github.com/<owner>/<repo>/releases/download/...` 连**早就验证过的 0.1.2 老链接**都只回 9 字节
+  `Not Found`（release 页面本身也只回 9 字节），而 `api.github.com` 全程正常 —— 也就是这条出口对
+  `github.com` 的 HTML / 下载路由不可达，不代表附件没挂上。要复算就走
+  `GET /repos/<owner>/<repo>/releases/assets/<id>` 带 `Accept: application/octet-stream` 把附件拉回来，
+  字节与 SHA-256 跟本地包逐字符相同才算数。0.1.1 那次同一条直链是下载成功过的，所以这条只描述**当下的
+  网络出口**，别当永久事实写死。
+- **上传附件的地址是 `https://uploads.github.com/repos/<owner>/<repo>/releases/<id>/assets?name=…`**
+  （2026-10-24 又拼错一次：把整条 `https://api.github.com/...` 接到 uploads 域名后面 → 回一个空响应，
+  `ConvertFrom-Json` 出来什么字段都没有，看着像"上传失败但其实什么都没发生"）。回读
+  `/releases/tags/<tag>` 的 `assets.Count` 能同时确认既没漏上传也没有重复件。
 - 一次跑完该核对的东西（`v0.1.1` 的实际结果）：Release 与附件的 id 都从 API 回读；`state=uploaded`、
   `content_type=application/gzip`、`size` 与本地包一致；从 `browser_download_url` 下载回来 86,164 B、
   SHA-256 与本地包一致；`/releases/latest` 已指向 `v0.1.1`；CI 五个 job 全绿（`selftest-windows (20)`、
