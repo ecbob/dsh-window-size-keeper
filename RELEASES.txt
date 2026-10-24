@@ -2,11 +2,92 @@ Release ledger —— 本仓库打出的 tarball 与其 SHA-256
 规则：每次改动先升版本、先落 CHANGELOG 一节，再打包；已发布的 tarball 永不删除。
 （本文件与 PUBLISHING.md / submission/ / .github/ 只存在于发布归档目录；开发目录没有这几样。）
 
+## 0.1.3
+
+| 状态 | tarball | 字节 | SHA-256（本机打出） | 日期 |
+| --- | --- | --- | --- | --- |
+| **现行（本机 desktop profile 已装；代码在 main `b4b03353e2`。tag 与 Release 附件**尚未做**，等重启验证过"打开就是设置的尺寸"再发）** | `dist/dsh-window-size-keeper-0.1.3.tgz` | 102,364 | `01d8482defb228c951ab1b8f83abdeee1fc80d2fff813d2d99b428c2e36a4984` | 2026-10-24 |
+
+这一版改的是**启动那一下的动手时机**，不是行为口径：症状是"DSH 先以 1280×820 露面，过一会才跳到设置
+好的尺寸"。提前恢复从 0.1.0 起就在跑，只是每次都输给 `show()` 约一秒，输点在 Win32 那条传输路 ——
+`powershell.exe` 起进程实测约 0.8s，`Add-Type` 现场编译再加约 0.45s。改法是把同一套 P/Invoke 的 C#
+源码随包带着，第一次要用 Win32 时**在使用者本机**用系统自带的 `csc.exe` 现编一个只干 Win32 的小 exe，
+产物与同名 `.cs` 落在 `~/.dsh/storages/window-size-keeper/`，文件名带源码摘要（源码一改旧缓存自动作废）。
+包里依旧不含任何二进制、不引第三方工具链；`win32Backend: "powershell"` 可以完全不编译、本机一个 exe
+都不落，行为退回 0.1.2。
+
+### 逐文件 SHA-256（0.1.3，可长期复用的锚点）
+
+| 包内路径 | SHA-256（前 16 位） |
+| --- | --- |
+| `package/lib/index.js` | `0f448016da37cb35`（改了：助手层 + 一次性 `--get`/`--set` + 代理接住管道 error） |
+| `package/lib/client.js` | `e5bb24415141d361`（与 0.1.2 同，客户端那一半一字未动） |
+| `package/cordis.patch.yml` | `d30d56c1760edfe2`（加了 `win32Backend` 一节注释） |
+| `package/scripts/selftest.mjs` | `220f701353902ef0`（新增 `[7b]` 组 11 条） |
+| `package/scripts/check-sensitive.mjs`（脱敏扫描器） | `7d9910e00a8aee64`（同） |
+| `package/package.json` | `28587b86c4134995` |
+| `package/README.md`（英文主文档） | `44459e0378bc4150` |
+| `package/README_zh.md`（简体中文版） | `b7e9590668875f1f` |
+| `package/CHANGELOG.md` | `4da2fa3fa658d294` |
+| `package/CHANGELOG.zh-CN.md` | `8cfde2d32d89bf57` |
+| `package/LICENSE` | `ffa5239155a5cb61`（同） |
+
+包内 11 个文件逐个与工作副本比对：11/11 相同（`tar -xzf` 到临时目录后逐文件 `Get-FileHash`）。
+
+### 0.1.3 的本机实测（改的是延迟，不测就等于没改）
+
+时间线，取自 2026-10-24 10:16 那次真启动（旧版 0.1.2 在跑，powershell 那条路）：
+
+| 时刻 | 事件 | 相对主进程 |
+| --- | --- | --- |
+| 10:16:02.982 | Electron 主进程起（pid 21924） | 0 |
+| 10:16:03.238 | 主窗口已创建（渲染进程 34248 起来的时刻），此刻**隐藏**、尺寸 1280×820 | +0.26s |
+| 10:16:03.549 | 宿主进程起（pid 35720，父进程正是 21924 → 插件认 PID 没问题） | +0.57s |
+| 10:16:04.637 | 插件 `apply` 落地（`state.json.gen`） | +1.66s |
+| 10:16:06.128 | `SetWindowPos` 把窗口改成 2200×1200（`state.json` 写入） | **+3.15s** |
+
+同一条代理路的起进程耗时，本机两轮实测 1319ms / 1243ms；拆开来是起 `powershell.exe` 800/821/850ms
+（三轮）＋ `Add-Type` 现场编译再加约 450ms。换成现编助手（同一台机器、同一套 P/Invoke）：
+
+| 动作 | 实测 |
+| --- | --- |
+| `csc.exe` 现编一次（一次性，之后命中缓存） | 111ms |
+| 起助手 + 第一次枚举（`openWinAgent`） | **98ms** |
+| 起 powershell 代理 + 第一次枚举（同一函数走兜底） | 1568ms |
+| 一次性 `--get` / `--set` | 84ms / 83ms |
+| 进程常驻后再问一次 WA / SET | 2ms / 7ms |
+
+照这条时间线，助手那条路把"动手"从约 +3.15s 挪到约 **+1.9s**，落在 `show()` 之前。
+第一次装上新版的**那次**启动会额外付一次现编 + 首次执行的成本（exe 第一次跑约 2.1s，是杀软/文件缓存
+冷），从第二次启动起就是上面那组数字 —— 也就是最坏的一次不如老路子，之后每次都比老路子快一秒多。
+
+真窗口验证（不产生任何视觉变化）：对当时那个真实 DSH 主窗口下一次"原值 SET"，助手 83ms 返回 OK，
+改后再读仍是 `(180,96) 2200×1200`。
+
+### 0.1.3 的自检与安装
+
+- `node --check` 四件全过；`npm run scan:sensitive` 通过（9 条规则，扫描器自身对照 16 判红 / 22 判绿）。
+- `node scripts/selftest.mjs`：**99 项通过，失败 0 项**（开发目录与本目录各一遍；装进 profile
+  `node_modules` 里的那一份再跑一遍也是 99/0）。新增 `[7b]` 组在 Windows 上真编真跑，产物只落在
+  自检自己的临时目录。
+- 本机安装链照 PUBLISHING 第零节：`npm pack` → 复制到 `~/.dsh/.plugin-sources/`（落地后复算 SHA-256
+  与上表一致）→ `dsh plugin --profile desktop add "<绝对路径 tgz>" --config.minimum-release-age=0
+  --prefer-offline` → pnpm 报 `- 0.1.2 / + 0.1.3`，Done in 378ms。profile 的依赖行与 lock 的
+  `specifier:` 仍是绝对 `file:` 写法（与另三条 sibling 的相对写法不一致，第零节记过这一条），
+  装的是 0.1.3 已核实。**桌面端尚未重启**，所以新版那一半要等下次开机才加载。
+
+### 0.1.3 还剩什么
+
+- 重启桌面端后实测"打开就是 2200×1200"，并看 `GET /state` 的 `win32Backend` 是不是 `helper`、
+  `~/.dsh/storages/window-size-keeper/` 里是否多出 `wsk-agent-*.exe` 与 `.cs`。
+- 上面过了再：注解 tag `v0.1.3` → GitHub Release 附件（保持原文件名）→ 下载侧复算 SHA-256 → 回填本节
+  状态列。老规矩：已发布的 tarball 永不删。
+
 ## 0.1.2
 
 | 状态 | tarball | 字节 | SHA-256（本机打出） | 日期 |
 | --- | --- | --- | --- | --- |
-| **现行（已推送 main + tag，Release 已建并复算；本机 desktop profile 已装）** | `dist/dsh-window-size-keeper-0.1.2.tgz` | 88,381 | `973c03fadb675e215def8d917b81c27decbc24c85e8373641af10eef7469bfbb` | 2026-10-20 |
+| **已被 0.1.3 取代**（已推送 main + tag，Release 已建并复算；本机 desktop profile 曾装过） | `dist/dsh-window-size-keeper-0.1.2.tgz` | 88,381 | `973c03fadb675e215def8d917b81c27decbc24c85e8373641af10eef7469bfbb` | 2026-10-20 |
 
 **这一版只改文档**：两份 README、两份 CHANGELOG 与 `package.json` 的版本行；`lib/`、`scripts/`、
 `cordis.patch.yml` 与 0.1.1 **逐字节相同**（`diff -rq` 两个解包目录实测差异条数正是 5，不是嘴上说），
