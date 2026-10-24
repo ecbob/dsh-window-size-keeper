@@ -43,9 +43,20 @@ the app's `show()` by about a second, and the cost that made it lose was the Win
   naming, backend normalisation), plus on Windows a real compile into the selftest's own temporary
   directory and the protocol driven against the real exe - including "a helper that cannot start must
   fall back to powershell, never give up". Offline checks: **88 → 99**.
+- **The selftest now guarantees it terminates**: an 8-minute watchdog (prints red and says "the last group
+  header in the log is the group that hung" - group headers print before their group runs), a
+  `process.exit` at the end, and `closeAllConnections()` on the test http server before `close()`. The reason
+  is empirical: after 0.1.3 was pushed, the Windows `selftest` step sat at **11 minutes without finishing**,
+  and an unfinished job gives **no logs** on GitHub (the logs endpoint answers `BlobNotFound`) - a hang there
+  is literally un-debuggable. Both Win32 groups now print their elapsed time into the log: measured here
+  2026-10-24, group `[7]` 9.2 s, group `[7b]` 2.9 s, whole run 10.6 s.
 
 ### Fixed
 
+- The helper's `--protocol` probe and its per-request agent timeout went from 4 s to **8 s**, matching the
+  powershell path: a freshly written exe gets scanned in full by antivirus on its first execution (measured
+  here: 0.8-2.2 s just for that first run), so 4 s would misjudge "it works" as "helper unavailable" and fall
+  back to the slow road for nothing.
 - On machines where the helper compiles, the resize now lands around **+1.9 s** after the app starts,
   i.e. *before* the window is shown, instead of after it. Measured here on 2026-10-24 (2560×1392 work
   area, target 2200×1200): Electron main process → main window already created and hidden at +0.26 s →

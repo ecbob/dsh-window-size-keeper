@@ -6,7 +6,11 @@ Release ledger —— 本仓库打出的 tarball 与其 SHA-256
 
 | 状态 | tarball | 字节 | SHA-256（本机打出） | 日期 |
 | --- | --- | --- | --- | --- |
-| **现行（本机 desktop profile 已装；代码在 main `b4b03353e2`。tag 与 Release 附件**尚未做**，等重启验证过"打开就是设置的尺寸"再发）** | `dist/dsh-window-size-keeper-0.1.3.tgz` | 102,364 | `01d8482defb228c951ab1b8f83abdeee1fc80d2fff813d2d99b428c2e36a4984` | 2026-10-24 |
+| **现行（本机 desktop profile 已装；main 到 `1bb1828` + 本轮加固那笔。tag 与 Release 附件**尚未做**，等重启验证过"打开就是设置的尺寸"再发）** | `dist/dsh-window-size-keeper-0.1.3.tgz` | 104,507 | `8c03005f4deb11f10583a6730de37d5e0195331ec1d054eb9ee0d99bb46546f2` | 2026-10-24 |
+
+> 0.1.3 **同日重打过一次**（同一版本号，因为旧那颗从未发布、也没打 tag）：第一次打的是 102,364 B、
+> SHA-256 `01d8482defb228c951ab1b8f83abdeee1fc80d2fff813d2d99b428c2e36a4984`，只在本机装过一轮就被替换，
+> 替换的理由见下面「CI 上那 11 分钟」一节。上表的逐文件摘要对应**重打后**的那颗。
 
 这一版改的是**启动那一下的动手时机**，不是行为口径：症状是"DSH 先以 1280×820 露面，过一会才跳到设置
 好的尺寸"。提前恢复从 0.1.0 起就在跑，只是每次都输给 `show()` 约一秒，输点在 Win32 那条传输路 ——
@@ -20,16 +24,16 @@ Release ledger —— 本仓库打出的 tarball 与其 SHA-256
 
 | 包内路径 | SHA-256（前 16 位） |
 | --- | --- |
-| `package/lib/index.js` | `0f448016da37cb35`（改了：助手层 + 一次性 `--get`/`--set` + 代理接住管道 error） |
+| `package/lib/index.js` | `8aa450aaac4fcb5b`（改了：助手层 + 一次性 `--get`/`--set` + 代理接住管道 error + 助手超时 4s→8s） |
 | `package/lib/client.js` | `e5bb24415141d361`（与 0.1.2 同，客户端那一半一字未动） |
 | `package/cordis.patch.yml` | `d30d56c1760edfe2`（加了 `win32Backend` 一节注释） |
-| `package/scripts/selftest.mjs` | `220f701353902ef0`（新增 `[7b]` 组 11 条） |
+| `package/scripts/selftest.mjs` | `c9bdda1e067ba5a6`（新增 `[7b]` 组 11 条 + 看门狗与收尾明确退出） |
 | `package/scripts/check-sensitive.mjs`（脱敏扫描器） | `7d9910e00a8aee64`（同） |
 | `package/package.json` | `28587b86c4134995` |
 | `package/README.md`（英文主文档） | `44459e0378bc4150` |
 | `package/README_zh.md`（简体中文版） | `b7e9590668875f1f` |
-| `package/CHANGELOG.md` | `4da2fa3fa658d294` |
-| `package/CHANGELOG.zh-CN.md` | `8cfde2d32d89bf57` |
+| `package/CHANGELOG.md` | `649542e85153a0b2` |
+| `package/CHANGELOG.zh-CN.md` | `b6ca9e5c9a3b4fe6` |
 | `package/LICENSE` | `ffa5239155a5cb61`（同） |
 
 包内 11 个文件逐个与工作副本比对：11/11 相同（`tar -xzf` 到临时目录后逐文件 `Get-FileHash`）。
@@ -75,6 +79,34 @@ Release ledger —— 本仓库打出的 tarball 与其 SHA-256
   --prefer-offline` → pnpm 报 `- 0.1.2 / + 0.1.3`，Done in 378ms。profile 的依赖行与 lock 的
   `specifier:` 仍是绝对 `file:` 写法（与另三条 sibling 的相对写法不一致，第零节记过这一条），
   装的是 0.1.3 已核实。**桌面端尚未重启**，所以新版那一半要等下次开机才加载。
+- 撞出一条新的本机口径：**同一版本号重打之后，光 `add` 不会换掉已装的那份**。对着同一个 `file:` 路径
+  装新 tarball，pnpm 回 `resolved 1, reused 1, added 0`，`node_modules` 里的 `lib/index.js` 仍是旧摘要
+  `0f448016…`。正确顺序是 `remove` → **物理核实目录真没了**（第零节记过 remove 谎报成功的坑）→ `add`
+  → 复算 `node_modules` 里的逐文件摘要 == 工作副本。本轮装完核实到 `8aa450aa…` / `c9bdda1e…`。
+  顺带：`dsh plugin … remove` 不认 `--prefer-offline`（只有 `add` 认），带上会 `Unknown option` 退出码 1。
+
+### CI 上那 11 分钟（这就是重打一版的原因）
+
+推上去之后五道 job：`desensitization`、`syntax-linux`、`manifest` 全绿；两台 `selftest-windows` 的
+`Offline selftest` 步骤跑了 **11 分钟没结束**。更麻烦的是**未结束的 job 取不到日志** —— logs 接口实测回
+`BlobNotFound`，也就是说"卡住的自检在 GitHub 上恰恰查不到"。
+
+同一份代码本机整轮 10.6~12.3s：`[7]` 组（真起 6 个 powershell 代理）9.2~10.8s，`[7b]` 组（现编 +
+4 次一次性调用 + 2 次常驻代理）2.9~3.4s；每次 Win32 调用又各自封顶（编译 20s、其余 8s），最坏预算约
+3min。**本机的数字解释不了 11 分钟**，剩两种可能：某一步真卡在某个有界超时之外，或者跑完了但事件循环
+上还剩没排干的句柄（node 不退出，CI 只能干等 6 小时 job 超时）—— 后两种在日志上长得一模一样，而后者
+正是本机看不见的那一类。
+
+于是发布前加固三处（旧那颗从未发布、也没打 tag，所以同版本号重打）：
+
+1. 自检加 **8 分钟看门狗**：到点打红，并写明"日志里最后一条组头就是卡住的那组"（组头在跑该组之前打印）。
+2. 收尾**明确 `process.exit`**（成功 0 / 失败 1），不再指望句柄自己排干；测试用的 http server 先
+   `closeAllConnections()` 再 `close()`（一条没结束的 keep-alive 就够 `close()` 永远不 resolve）。
+3. 助手 `--protocol` 探针与助手代理单次请求超时 **4s → 8s**：刚写出来的 exe 第一次执行会被杀软整份扫
+   一遍（本机首跑就要 0.8~2.2s），4s 太紧会把"其实能用"误判成"助手不可用"，白退回慢路。
+
+两组 Win32 的耗时从此也打进 CI 日志（`（本机实测：powershell 代理组 …ms，助手 exe 组（含现编）…ms）`），
+慢在哪一层以后不用再猜。
 
 ### 0.1.3 还剩什么
 

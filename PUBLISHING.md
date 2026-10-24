@@ -28,6 +28,10 @@
   `.plugin-sources\x.tgz`"直接 ENOENT。传绝对路径能装成功，但 pnpm 会把 manifest 的依赖行与 lock 的
   `specifier:` 都写成绝对形式，与 profile 里另外三条 sibling 的相对写法不一致，得手改归一（就这两处；
   `version:` 与 `resolution.tarball` pnpm 自己写出来就是相对的）。
+- 同一版本号**重打**之后（改完没发布、没打 tag，又打了一颗同名 tarball），光再 `add` 一次**不会**换掉
+  已装的那份：pnpm 回 `resolved 1, reused 1, added 0`，`node_modules` 里仍是旧摘要。顺序必须是
+  `remove` → 物理核实条目真消失 → `add` → 复算 `node_modules` 里的逐文件摘要 == 工作副本。
+  另外 `remove` 不认 `--prefer-offline`（只有 `add` 认），带上直接 `Unknown option` 退出码 1。
 - 卸掉 `link:` 依赖之后，**必须核实 `node_modules` 里的条目真物理消失**再装新的。本机 `pnpm remove`
   报过成功却把目录链接留在原地，随后 `add` 撞 `ERR_PNPM_EPERM`（rename），那次中途失败还把开发目录的
   `.git` 削残（只剩 `objects/` + `refs/` + `packed-refs`，`HEAD`/`config`/`index` 全没），靠

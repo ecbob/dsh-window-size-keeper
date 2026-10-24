@@ -56,6 +56,19 @@ const {
 let passed = 0;
 const failures = [];
 
+// 看门狗：**卡住的自检在 CI 上查不到**——GitHub 对未结束的 job 不给日志（logs 接口回
+// BlobNotFound），于是"越卡越看不见"，只能干等 6 小时超时。这里到点自杀并打红：日志里
+// 最后一条组头就是卡住的那组（组头在跑该组之前打印）。本机 2026-10-24 整轮 10.6s，其中
+// [7] 组（真起 6 个 powershell 代理）9.2s、[7b] 组（现编 + 4 次助手调用 + 2 次代理）2.9s；
+// 每次 Win32 调用又各自封顶（编译 20s，其余 8s），最坏预算约 3min。慢 10 倍的 runner 也就
+// 2min —— 所以 8min 是"够慢机器跑完"与"别把人卡在超时上"之间的余量。
+const WATCHDOG_MS = 480000;
+const watchdog = setTimeout(() => {
+	console.error(`\n看门狗：自检超过 ${Math.round(WATCHDOG_MS / 1000)}s 未收尾（已过 ${passed} 项、失败 ${failures.length} 项）。`);
+	console.error("日志里最后一条组头就是卡住的那组；组头在跑该组之前打印。");
+	process.exit(1);
+}, WATCHDOG_MS);
+
 function check(label, fn) {
 	try {
 		fn();
@@ -435,8 +448,12 @@ async function main() {
 	// [7] Win32 代理协议：真起一个 powershell.exe 走一遍 ENUM / WA / SET / 未知指令 / EXIT。
 	// ENUM 与 WA 只读；SET 打在一个不存在的句柄上（SetWindowPos 返回 false），
 	// 所以这段不会 resize 任何真实窗口。非 Windows 上整段跳过。
+	// 这两组的耗时打进日志：改的就是启动延迟，CI 上一眼能看出这台机器慢在哪一层。
+	let t7 = -1;
+	let t7b = -1;
 	if (process.platform === "win32") {
 		console.log("[7] Win32 代理协议（真 powershell.exe，只读 + 假句柄）");
+		t7 = Date.now();
 		const withAgent = async (label, fn) => {
 			await run(label, async () => {
 				const agent = internals.createWinAgent();
@@ -492,6 +509,7 @@ async function main() {
 	// [7b] Win32 助手（本机现场编译的小 exe）：纯函数层钉"怎么选路"，真机层钉协议与回退顺序。
 	// 编译产物只落在自检自己的 tmp 目录，**不碰** ~/.dsh/storages；SET 一律打在不存在的句柄上。
 	console.log("[7b] Win32 助手 exe（选路纯函数 / 现编 / 契约 / 回退顺序）");
+	t7b = Date.now();
 	const helperSource = internals.buildAgentCSharp("Chrome_WidgetWin_1");
 	check("助手源码把主窗口类名内联进去，不留占位符", () => {
 		assert.ok(helperSource.includes('mainClass = "Chrome_WidgetWin_1"'), "类名没内联进源码");
@@ -590,6 +608,10 @@ async function main() {
 				opened.agent.close();
 			});
 		}
+	}
+
+	if (t7 >= 0 && t7b >= 0) {
+		console.log(`  （本机实测：powershell 代理组 ${Date.now() - t7}ms，助手 exe 组（含现编）${Date.now() - t7b}ms）`);
 	}
 
 	// [8] 文案 i18n：词典对齐、语言判定优先级、原因码渲染。客户端半个插件是浏览器模块，
@@ -1101,6 +1123,9 @@ async function main() {
 		}
 	});
 
+	// 先掐掉所有连接再 close()：`server.close()` 会等**已建立**的连接自己结束，
+	// 一条没读完的 keep-alive 就够它永远不 resolve（表现为"打完了但这一步永不结束"）。
+	if (typeof server.closeAllConnections === "function") server.closeAllConnections();
 	server.close();
 	console.log(`\n合计 ${passed} 项通过，失败 ${failures.length} 项`);
 	if (failures.length > 0) {
@@ -1108,9 +1133,14 @@ async function main() {
 		process.exitCode = 1;
 	}
 	fs.rmSync(tmp, { recursive: true, force: true });
+	clearTimeout(watchdog);
+	// 明确退出：结论已经打印完了，不再等事件循环排干——只要还有一个子进程的管道没关净，
+	// node 就会一直挂着（CI 里表现成"99 项全绿但这一步永不结束"）。
+	process.exit(failures.length > 0 ? 1 : 0);
 }
 
 main().catch((err) => {
 	console.error("自检脚本自身出错：", err);
-	process.exitCode = 1;
+	clearTimeout(watchdog);
+	process.exit(1);
 });
