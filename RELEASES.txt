@@ -184,12 +184,22 @@ Release ledger —— 本仓库打出的 tarball 与其 SHA-256
 - 上面那两条都已办完，凭据见上一节「0.1.3 的发布链」：重启实测走的就是助手（`win32Backend: "helper"`、
   `win32HelperFallback: false`，外框实测正好 2200×1200），tag `v0.1.3` 已推，Release 附件已从 API 资产端点
   拉回复算、与本地那颗逐字符一致。
-- 市场投稿已提：`awesome-dsh-plugin/awesome-dsh-plugin#9037`（2026-10-24，只加
+- 市场投稿已提：`awesome-dsh-plugin/awesome-dsh-plugin#9047`（2026-10-24，只加
   `data/plugins/ecbob__dsh-window-size-keeper.yml` 一个文件，+6/-0，fork 从当时上游 main 直接开）。
   开之前按对方要求把本仓库的 `dsh-plugin` topic 补上了（`PUT /repos/<owner>/<repo>/topics`，`PATCH` 仓库对象
   不管这个字段），并把条目描述重写成逐句能对着代码核对的版本（去掉"零运行时依赖""常驻 PowerShell 代理"这类
   不准确说法）。等的是对方 CI（`pr-check` + `workflow_run` 那道仓库闸门）与维护者评审 —— 走法与踩的坑见
   `PUBLISHING.md` 的「六之二」。
+- 中间自己翻过一次车，记在案上：为了重跑对方 CI，我在 `--depth 1` 的克隆里 `git commit --amend`，浅克隆没有
+  父提交，amend 于是把提交变成**无父的根提交**；推上去 GitHub 见 head 与 base 没有共同历史，把 **#9037** 判成
+  "没有提交"并**当场自动关闭**（`changed_files` 一度显示 6869 / +194954），而 `PATCH /issues/9037` 重开回
+  `422 Validation Failed`（`errors` 还是空数组）。补救：分支按 base 重建（新 head `8c01d7f41`，父提交正是
+  `b4d0049a8`，相对 main 只有那一个文件）→ 用 `--force-with-lease=<分支>:<坏掉的 sha>` 覆盖自己那条分支 →
+  在原 PR 留言说明原因 → 开 **#9047**（正文写 `#9037` 会自动生成交叉引用）。教训：浅克隆里别 amend；想重跑
+  对方 CI 等他们的 `regate.yml`（cron `19 */6 * * *`，UTC）就行，不必自己动手。
+- 那次 `Submission gate` 的红也要读对：它的 `output.title` 是 **"The gate could not run"**，摘要写的是对方这个
+  GitHub App installation 撞了 `API rate limit exceeded` —— **不是对条目的判定**（`PR check` 那十几步在旧 head
+  `d17290bd` 上已经全绿，含 awesome-lint 与 build-site）。
 - 观察项（不用做什么）：助手 exe 已缓存在状态文件同目录，下次重启不再现编，动手时刻应当贴着 `apply`
   （本机这一代 `apply` 在 +1.81s）；哪天杀软把新写的 exe 拦死，`win32HelperFallback` 会转 `true`、自动退回
   powershell，功能不丢，只是慢回那一档 +1.2s。

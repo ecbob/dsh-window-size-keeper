@@ -131,8 +131,8 @@ dev_reload_package   dsh-window-size-keeper
 - [x] GitHub Release `v0.1.0`（id 417597383）+ 附件 `dsh-window-size-keeper-0.1.0.tgz`（75,239 B；
       下载回来复算 SHA-256 与本地一致）；[x] 仓库已确认 Public（匿名 API 与 git-http refs 都是 200）
 - [x] CI：run 19 起五道 job 全绿（网页与 API 都核实过；两台 Windows runner 各 `99 项通过 / 0 失败`）
-- [x] 市场投稿 PR：`awesome-dsh-plugin/awesome-dsh-plugin#9037`（2026-10-24 开，只加一个条目文件、+6/-0）
-      —— 走法与踩到的三处坑见下面「六之二」
+- [x] 市场投稿 PR：`awesome-dsh-plugin/awesome-dsh-plugin#9047`（2026-10-24，只加一个条目文件、+6/-0；
+      前一条 #9037 是我自己一次错误的 `--amend` + force-push 弄坏的，见「六之二之二」；走法与坑见「六之二」）
 - [x] 本地令牌文件用完即删（`.github_token_temp/` 已整个删掉，核实不存在）；
       [ ] GitHub 那侧的 OAuth 授权仍未撤销（撤销不影响本仓库的 push，除非哪天 GCM 要重新登录）
 - [ ] 浏览器里的真机视觉确认：本机 Edge / Chrome 的 headless 被活动会话挡住（stdout 空、
@@ -238,7 +238,7 @@ README 里"普通用户装产物"那条路认的就是这个名字。
 2. `POST /repos/awesome-dsh-plugin/awesome-dsh-plugin/forks`，然后轮询到新 fork 的 `main` 与上游 `main`
    同一个 commit（GitHub 复制要几秒）。**fork 必须从当前 main 开**：pr-check 有一道 stale-fork 门禁，
    条目文件"删得比加得多"（>2）直接红。
-3. `git clone --depth 1 <fork>` → 新分支 → 条目文件放进 `data/plugins/` → **只 `git add` 这一个文件**
+3. `git clone --filter=blob:none <fork>`（要**带完整历史**，原因见本节末尾那条翻车） → 新分支 → 条目文件放进 `data/plugins/` → **只 `git add` 这一个文件**
    （提交身份 `ecbob <ecbob@users.noreply.github.com>`，别把个人邮箱写进公开历史）→ 推分支。
 4. `POST /repos/<上游>/pulls`，`head` 写成 `<我的用户名>:<分支>`。开完核对 `changed_files` / `additions` /
    `deletions` 应当正是 1 / +6 / -0（本次 #9037 就是 1 / +6 / -0）。
@@ -261,3 +261,28 @@ README 里"普通用户装产物"那条路认的就是这个名字。
 curl 解析不出主机名，`-s` 又把报错吞了，结果一整批调用"全都成功、全都回空对象"，看着像鉴权坏了 ——
 同一会话里加一条 `GET /user` 就能把"令牌不行"与"URL 不行"一眼分开。另：PowerShell 5.1 下把 curl 的输出喂给
 `ConvertFrom-Json` 之前先 `| Out-String` 收成单串更稳。
+
+
+### 六之二之二、自己把投稿 PR 弄坏过一次（#9037 → #9047），教训三条
+
+想重跑对方的 CI，我干了"换个 sha"这件事：在 `--depth 1` 的克隆里 `git commit --amend --no-edit`。后果比预想严重：
+
+1. **浅克隆里没有父提交**，`--amend` 于是把提交改成了**无父的根提交**（`git log --format='%h 父=[%p]'` 回
+   `父=[]` 就是证据；`git show --stat` 一下列出六千多个文件也是）。推上去之后 GitHub 见 head 与 base 没有共同
+   历史，把 PR 判成"没有提交"并**同一时刻自动关闭**（timeline 里 `head_ref_force_pushed` 与 `closed` 是同一个
+   时间戳），`changed_files` 变成 6869 / +194954。
+2. **关掉的 PR 重开不了**：`PATCH /repos/<上游>/issues/<n>` 回 `422 Validation Failed`，且 `errors` 数组是空的
+   —— 什么线索都不给，因为记录里的 head sha 已经不可达。补救只有一条路：分支按 base 重建（`git checkout -b
+   <分支> <base sha>` → 放文件 → 提交 → `push --force-with-lease=<分支>:<坏掉的 sha>`，lease 明确钉住那个坏 sha
+   才不会覆盖别人的东西），在原 PR 留言说明原因，再**开一条新 PR**（新 PR 正文里写 `#9037` 会自动生成交叉引用，
+   原 PR 的 timeline 里就能看到）。
+3. **想重跑对方 CI 本来不用自己动手**：他们有 `regate.yml`（`cron: 19 */6 * * *`，UTC，每 6 小时一班），会把
+   "从没被闸门过"或"结论过期"的 open PR 重新跑一遍 `PR check`。等一班就行。
+
+顺带钉两条读法与本机事实：
+
+- 对方 `Submission gate` 判红时先看 `output.title`：**"The gate could not run"** 是闸门自己没跑起来（这次摘要写的是
+  这个 GitHub App installation 的 `API rate limit exceeded`），**不是对条目的判定**；真拒稿会把条目名列出来。
+  这种情况 `/check-runs/<id>/annotations` 回空数组，答案在 `output.summary` 里。
+- `git fetch --unshallow` 在本机这条出口上失败过（`fatal: fetch-pack: invalid index-pack output`，大包拉断），
+  而 `--filter=blob:none` 的完整历史克隆几十秒就好 —— 要重建带父提交的分支就重新部分克隆，别在浅克隆上修补。
