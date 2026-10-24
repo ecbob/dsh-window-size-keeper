@@ -133,10 +133,14 @@ Release ledger —— 本仓库打出的 tarball 与其 SHA-256
 
 ### 0.1.3 还剩什么
 
-- CI 侧已发生的（同一版重打期间）：run 16（`a012c28`）与 run 17（`1bb1828`）两台 Windows runner 的
-  selftest 步骤**没收尾**，各挂了 11 分钟以上 —— 已用 API 取消（HTTP 202），免得白烧 runner 分钟数。
-  run 18（`6476cc9`，加了明确退出那版）跑完了：**98 通过 / 1 失败 + 收尾 EPERM**，日志因此才取得到，
-  真因就是上一节那两条。修完的这颗推上去之后重跑，五道 job 应当全绿（等下面回填）。
+- CI 侧（同一版重打期间）：run 16（`a012c28`）与 run 17（`1bb1828`）两台 Windows runner 的 selftest 步骤
+  **没收尾**，各挂 11 分钟以上 —— 已用 API 取消（HTTP 202），免得白烧 runner 分钟数。run 18（`6476cc9`，
+  加了明确退出那版）跑完了：**98 通过 / 1 失败 + 收尾 EPERM**，日志因此才取得到，真因就是上一节那两条。
+  **run 19（`067bbe9`）五道 job 全绿**：`manifest` / `syntax-linux` / `desensitization` /
+  `selftest-windows (20)` / `selftest-windows (22)`，两台 runner 都是 `合计 99 项通过，失败 0 项`。
+  顺带从 runner 日志里拿到一组跨机器对照：**powershell 代理组 5,913 / 6,061ms，助手 exe 组（含现编）
+  756 / 795ms** —— 现编带跑协议全套仍比 powershell 那条快 8 倍，本机同一组是 10.3s / 4.1s。
+  两台 runner 的 job 本体只用了 28~30 秒（含 checkout 与 setup-node）。
 - 重启桌面端后实测"打开就是 2200×1200"，并看 `GET /state` 的 `win32Backend` 是不是 `helper`、
   `~/.dsh/storages/window-size-keeper/` 里是否多出 `wsk-agent-*.exe` 与 `.cs`。
 - 上面过了再：注解 tag `v0.1.3` → GitHub Release 附件（保持原文件名）→ 下载侧复算 SHA-256 → 回填本节
